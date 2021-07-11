@@ -58,6 +58,7 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
         Ok(_) => true,
         Err(e) => false
     };
+    //TODO: Update "last_state" in database.
     let json = serde_json::json!({
         "success": status
     });
