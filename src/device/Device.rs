@@ -35,13 +35,19 @@ impl Device {
             DeviceType::SWITCH => "action.devices.types.SWITCH",
             DeviceType::GARAGE => "action.devices.types.GARAGE"
         };
+        let traits = match self.kind {
+            DeviceType::LIGHT => "action.devices.traits.OnOff",
+            DeviceType::SWITCH => "action.devices.traits.OnOff",
+            DeviceType::GARAGE => "action.devices.traits.OpenClose"
+        };
         let hardware_model = match self.hardware {
             HardwareType::ARDUINO => "Arduino",
             HardwareType::PI => "Raspberry Pi"
-        };
+         };
         let json = serde_json::json!({
             "id": self.guid,
             "type": device_type,
+            "traits": [ traits ],
             "name": {
                 "defaultNames": [
                     self.guid
@@ -58,7 +64,7 @@ impl Device {
             },
             "willReportState": true,
             "attributes": {
-                "commandOnlyOnOff": true
+                "commandOnlyOnOff": false
             }
         });
         json

@@ -78,6 +78,5 @@ async fn list_devices_google() -> Result<impl warp::Reply, warp::Rejection> {
     }
     let json_output = serde_json::json!(json_arr);
     let output = format!("{}",json_output);
-    println!("{}",output);
     Ok(warp::reply::with_status(output, http::StatusCode::OK))
 }
