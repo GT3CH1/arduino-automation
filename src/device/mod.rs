@@ -1,5 +1,4 @@
-pub mod googledevice;
-pub mod Device;
+pub mod device;
 
 use std::str::FromStr;
 use serde::{Serialize, Deserialize};
@@ -47,13 +46,15 @@ impl FromStr for HardwareType {
 }
 
 
-pub fn empty_device() -> Device::Device {
-    Device::Device {
+pub fn empty_device() -> device::Device {
+    device::Device {
         ip: "".to_string(),
         guid: "".to_string(),
         kind: DeviceType::LIGHT,
         hardware: HardwareType::ARDUINO,
         last_state: false,
+        last_seen: "".to_string(),
+        sw_version: 0
     }
 }
 

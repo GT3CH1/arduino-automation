@@ -1,6 +1,6 @@
 use mysql::Pool;
 use std::env;
-use crate::device::Device::get_devices;
+use crate::device::device::get_devices;
 
 mod device;
 mod daemon;
