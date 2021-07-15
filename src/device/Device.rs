@@ -33,16 +33,21 @@ impl Device {
         let device_type = match self.kind {
             DeviceType::LIGHT => "action.devices.types.LIGHT",
             DeviceType::SWITCH => "action.devices.types.SWITCH",
-            DeviceType::GARAGE => "action.devices.types.GARAGE"
+            DeviceType::GARAGE => "action.devices.types.GARAGE",
+            DeviceType::SPRINKLER => "action.devices.types.SPRINKLER",
+            DeviceType::ROUTER => "action.devices.types.ROUTER"
         };
         let traits = match self.kind {
             DeviceType::LIGHT => "action.devices.traits.OnOff",
             DeviceType::SWITCH => "action.devices.traits.OnOff",
-            DeviceType::GARAGE => "action.devices.traits.OpenClose"
+            DeviceType::GARAGE => "action.devices.traits.OpenClose",
+            DeviceType::SPRINKLER => "action.devices.traits.OnOff",
+            DeviceType::ROUTER => "action.devices.traits.Reboot",
         };
         let hardware_model = match self.hardware {
             HardwareType::ARDUINO => "Arduino",
-            HardwareType::PI => "Raspberry Pi"
+            HardwareType::PI => "Raspberry Pi",
+            HardwareType::OTHER => "Other"
          };
         let json = serde_json::json!({
             "id": self.guid,

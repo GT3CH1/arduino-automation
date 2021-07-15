@@ -9,6 +9,8 @@ pub enum DeviceType {
     LIGHT,
     SWITCH,
     GARAGE,
+    SPRINKLER,
+    ROUTER,
 }
 
 impl FromStr for DeviceType {
@@ -18,6 +20,8 @@ impl FromStr for DeviceType {
             "LIGHT" => Ok(DeviceType::LIGHT),
             "SWITCH" => Ok(DeviceType::SWITCH),
             "GARAGE" => Ok(DeviceType::GARAGE),
+            "SPRINKLER" => Ok(DeviceType::SPRINKLER),
+            "ROUTER" => Ok(DeviceType::ROUTER),
             _ => Err(())
         }
     }
@@ -27,6 +31,7 @@ impl FromStr for DeviceType {
 pub enum HardwareType {
     ARDUINO,
     PI,
+    OTHER,
 }
 
 impl FromStr for HardwareType {
@@ -35,6 +40,7 @@ impl FromStr for HardwareType {
         match s {
             "ARDUINO" => Ok(HardwareType::ARDUINO),
             "PI" => Ok(HardwareType::PI),
+            "OTHER" => Ok(HardwareType::OTHER),
             _ => Err(())
         }
     }
