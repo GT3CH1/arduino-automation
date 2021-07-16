@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use crate::{get_pool, device};
 use std::fmt;
 use std::str::FromStr;
-use crate::device::{HardwareType, DeviceType};
+use crate::device::{HardwareType, DeviceType, GarageAttribute, OnOffAttribute};
 use mysql::serde_json::Value;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +26,14 @@ impl Device {
         url
     }
 
+    pub fn get_attributes(&self) -> Value {
+        let data = match self.kind {
+            DeviceType::GARAGE => GarageAttribute::new().attributes,
+            DeviceType::LIGHT | DeviceType::SWITCH | DeviceType::SPRINKLER => OnOffAttribute::new().attributes
+        };
+        data
+    }
+
     pub fn get_api_url_with_param(&self, endpoint: String, param: String) -> String {
         format!("{}?param={}", self.get_api_url(endpoint), param)
     }
@@ -42,28 +50,40 @@ impl Device {
         return res;
     }
 
-    /// Converts this device into a json object that google smart home can understand.
-    pub fn to_google_device(&self) -> Value {
-        let device_type = match self.kind {
+    pub fn get_google_device_type(&self) -> &str {
+        match self.kind {
             DeviceType::LIGHT => "action.devices.types.LIGHT",
             DeviceType::SWITCH => "action.devices.types.SWITCH",
             DeviceType::GARAGE => "action.devices.types.GARAGE",
             DeviceType::SPRINKLER => "action.devices.types.SPRINKLER",
-            DeviceType::ROUTER => "action.devices.types.ROUTER"
-        };
-        let traits = match self.kind {
+        }
+    }
+
+    pub fn get_google_device_traits(&self) -> &str {
+        match self.kind {
             DeviceType::LIGHT => "action.devices.traits.OnOff",
             DeviceType::SWITCH => "action.devices.traits.OnOff",
             DeviceType::GARAGE => "action.devices.traits.OpenClose",
             DeviceType::SPRINKLER => "action.devices.traits.OnOff",
-            DeviceType::ROUTER => "action.devices.traits.Reboot",
-        };
-        let hardware_model = match self.hardware {
+        }
+    }
+
+    pub fn get_google_device_hardware(&self) -> &str {
+        match self.hardware {
             HardwareType::ARDUINO => "Arduino",
             HardwareType::PI => "Raspberry Pi",
             HardwareType::OTHER => "Other"
-        };
+        }
+    }
+
+    /// Converts this device into a json object that google smart home can understand.
+    pub fn to_google_device(&self) -> Value {
+        let traits = self.get_google_device_traits();
+        let device_type = self.get_google_device_type();
+        let hardware_model = self.get_google_device_hardware();
+        let attributes = self.get_attributes();
         let json = serde_json::json!({
+
             "id": self.guid,
             "type": device_type,
             "traits": [ traits ],
@@ -79,12 +99,9 @@ impl Device {
                 "manufacturer": "GTECH",
                 "model": hardware_model,
                 "hwVersion": "1.0",
-                "swVersion": "0.1.0"
+                "swVersion": self.sw_version
             },
-            "willReportState": true,
-            "attributes": {
-                "commandOnlyOnOff": false
-            }
+            "willReportState": true
         });
         json
     }
