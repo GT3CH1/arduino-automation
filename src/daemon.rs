@@ -48,7 +48,7 @@ pub(crate) async fn run() {
         .and(sys_put())
         .and_then(do_device_update);
     let device_update_arduino = warp::put()
-        .and(warp::path("device"))
+        .and(warp::path("update"))
         .and(warp::path::end())
         .and(warp::body::form())
         .map(|_map: HashMap<String, String>| {

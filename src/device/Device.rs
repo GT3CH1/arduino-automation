@@ -30,15 +30,16 @@ impl Device {
         format!("{}?param={}", self.get_api_url(endpoint), param)
     }
 
-    pub fn database_update(&self, state: bool, ip: String, sw_version: i64) -> bool{
+    pub fn database_update(&self, state: bool, ip: String, sw_version: i64) -> bool {
         let pool = get_pool();
-        let query = format!("UPDATE `devices` SET state='{}', ip='{}', swVersion='{}' WHERE guid={}",
-        state,ip,sw_version,self.guid);
-        let res = match pool.prep_exec(query,()) {
-            Ok(_res) => true,
+        let query = format!("UPDATE `devices` SET last_state={}, ip='{}', swVersion='{}', last_seen=CURRENT_TIMESTAMP WHERE guid='{}'",
+                            state, ip, sw_version, self.guid);
+        println!("{}", query);
+        let res = match pool.prep_exec(query, ()) {
+            Ok(res) => res.affected_rows() > 0,
             Err(..) => false
         };
-        return res
+        return res;
     }
 
     /// Converts this device into a json object that google smart home can understand.
