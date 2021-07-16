@@ -9,7 +9,6 @@ pub enum DeviceType {
     SWITCH,
     GARAGE,
     SPRINKLER,
-    ROUTER,
 }
 
 impl FromStr for DeviceType {
@@ -20,7 +19,6 @@ impl FromStr for DeviceType {
             "SWITCH" => Ok(DeviceType::SWITCH),
             "GARAGE" => Ok(DeviceType::GARAGE),
             "SPRINKLER" => Ok(DeviceType::SPRINKLER),
-            "ROUTER" => Ok(DeviceType::ROUTER),
             _ => Err(())
         }
     }
@@ -54,7 +52,37 @@ pub fn empty_device() -> device::Device {
         hardware: HardwareType::ARDUINO,
         last_state: false,
         last_seen: "".to_string(),
-        sw_version: 0
+        sw_version: 0,
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GarageAttribute {
+    pub attributes: serde_json::Value,
+}
+
+impl GarageAttribute {
+    fn new() -> GarageAttribute {
+        GarageAttribute {
+            attributes: serde_json::json!({
+              "discreteOnlyOpenClose": true
+            })
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OnOffAttribute {
+    pub attributes: serde_json::Value,
+}
+
+impl OnOffAttribute {
+    fn new() -> OnOffAttribute {
+        OnOffAttribute {
+            attributes: serde_json::json!({
+                    "commandOnlyOnOff": false,
+                    "queryOnlyOnOff": false
+            })
+        }
+    }
+}

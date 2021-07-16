@@ -31,7 +31,6 @@ pub(crate) async fn run() {
         .and(warp::path::end())
         .and_then(list_devices);
     let list_google_devices = warp::get()
-        .and(warp::path("device"))
         .and(warp::path("google"))
         .and(warp::path::end())
         .and_then(list_devices_google);
