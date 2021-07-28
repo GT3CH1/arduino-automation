@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use warp::{Filter, http};
 
 use crate::models::device;
-use crate::models::device::get_device_from_guid;
-use futures::executor::block_on;
+use crate::models;
+use regex::Regex;
+use crate::models::device::get_devices;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -35,18 +36,15 @@ pub(crate) async fn run() {
         .and_then(list_devices);
     let list_google_devices = warp::get()
         .and(warp::path("google"))
-        .and(warp::header("authorization"))
-        .map(|token: String| {
-            warp::reply::with_status(list_devices_google(token),http::StatusCode::OK)
-        });
+        .and_then(list_devices_google);
 
-    // let get_device_status = warp::get()
-    //     .and(warp::path("device"))
-    //     .and(warp::path::param())
-    //     .map(|_guid: String| {
-    //         let device = get_device_from_guid(_guid).await;
-    //         format!("{}", device.last_state)
-    //     });
+    let get_device_status = warp::get()
+        .and(warp::path("device"))
+        .and(warp::path::param())
+        .map(|_guid: String| {
+            let device = device::get_device_from_guid(_guid);
+            format!("{}", device)
+        });
     let device_update = warp::put()
         .and(warp::path("device"))
         .and(warp::path::end())
@@ -83,8 +81,8 @@ pub(crate) async fn run() {
         .or(list_devices)
         .or(device_update)
         .or(device_update_arduino)
-    // .or(get_device_status);
-    .or(list_google_devices);
+        .or(get_device_status)
+        .or(list_google_devices);
     warp::serve(routes)
         .run(([0, 0, 0, 0], 3030))
         .await;
@@ -104,27 +102,48 @@ fn sys_put() -> impl Filter<Extract=(DeviceUpdate, ), Error=warp::Rejection> + C
 
 
 async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Rejection> {
-    let device = device::get_device_from_guid(state.guid).await;
-    let guid = &device.guid;
-    let mut endpoint = "";
-    if state.state {
-        endpoint = "on";
+    // Match the device to a sprinkler zone
+    let re = Regex::new(r"(?im)^[0-9A-Fa-f]{8}[-]?(?:[0-9A-Fa-f]{4}[-]?){3}[0-9A-Fa-f]{12}[-][0-9].?$").unwrap();
+    if re.is_match(state.guid.as_str()) {
+        let device_list = get_devices();
+        let mut device = device::Device::default();
+        for dev in device_list {
+            if dev.guid == state.guid {
+                device = dev;
+                break;
+            }
+        }
+        let status = models::sqlsprinkler::set_zone(device.ip, state.state, device.sw_version-1);
+        let response = match status {
+            true => "ok",
+            false => "fail",
+        };
+        Ok(warp::reply::with_status(response, http::StatusCode::OK))
     } else {
-        endpoint = "off";
+        let device = device::get_device_from_guid(state.guid);
+        let guid = &device.guid;
+        let mut endpoint = "";
+        if state.state {
+            endpoint = "on";
+        } else {
+            endpoint = "off";
+        }
+
+        // If the device is a sql sprinkler host, we need to send the request to it...
+        if device.kind == models::device_type::Type::SQLSPRINLER_HOST {
+            let status = models::sqlsprinkler::set_system(device.ip, state.state);
+            let response = match status {
+                true => "ok",
+                false => "fail",
+            };
+            Ok(warp::reply::with_status(response, http::StatusCode::OK))
+        } else {
+            // Everything else is an arduino.
+            let url = device.get_api_url_with_param(endpoint.to_string(), guid.to_string());
+            isahc::get(url).unwrap().status().is_success();
+            Ok(warp::reply::with_status("ok", http::StatusCode::OK))
+        }
     }
-
-
-    let url = device.get_api_url_with_param(endpoint.to_string(), guid.to_string());
-    let success = reqwest::get(url).await;
-    let status = match success {
-        Ok(_) => true,
-        Err(_e) => false
-    };
-    //TODO: Update "last_state" in database.
-    let json = serde_json::json!({
-        "success": status
-    });
-    Ok(warp::reply::with_status(json.to_string(), http::StatusCode::OK))
 }
 
 async fn list_devices() -> Result<impl warp::Reply, warp::Rejection> {
@@ -132,8 +151,10 @@ async fn list_devices() -> Result<impl warp::Reply, warp::Rejection> {
     Ok(warp::reply::with_status(devices, http::StatusCode::OK))
 }
 
-fn list_devices_google(token: String) -> String {
-    let devices = device::get_devices_useruuid(token);
+// fn list_devices_google(token: String) -> String {
+async fn list_devices_google() -> Result<impl warp::Reply, warp::Rejection>  {
+    // let devices = device::get_devices_useruuid(token);
+    let devices = device::get_devices();
     let mut json_arr = vec![];
     for device in devices.iter() {
         json_arr.push(device.to_google_device());
@@ -141,7 +162,7 @@ fn list_devices_google(token: String) -> String {
     println!("Done getting google devices.");
     let json_output = serde_json::json!(json_arr);
     let output = format!("{}", json_output);
-    output
+    Ok(warp::reply::with_status(output, http::StatusCode::OK))
 }
 
 async fn do_device_update(_device: DeviceUpdate) -> Result<impl warp::Reply, warp::Rejection> {
@@ -150,20 +171,10 @@ async fn do_device_update(_device: DeviceUpdate) -> Result<impl warp::Reply, war
 }
 
 fn database_update(_device: DeviceUpdate) -> String {
-    let device = block_on(device::get_device_from_guid(_device.guid));
+    let device = device::get_device_from_guid(_device.guid);
     let status = match device.database_update(_device.state, _device.ip, _device.sw_version) {
         true => "updated".to_string(),
         false => "an error occurred.".to_string()
     };
     status
-}
-
-async fn do_device_update_hashmap(_map: HashMap<String, String>) -> Result<impl warp::Reply, warp::Rejection> {
-    let mut status = "".to_string();
-
-    if status != "" {
-        Ok(warp::reply::with_status(status, http::StatusCode::OK))
-    } else {
-        Err(warp::reject())
-    }
 }

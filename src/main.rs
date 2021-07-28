@@ -1,6 +1,5 @@
 use mysql::Pool;
 use std::env;
-use models::device::get_devices;
 
 mod daemon;
 mod models;

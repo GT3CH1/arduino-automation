@@ -7,8 +7,8 @@ use std::str::FromStr;
 use mysql::serde_json::Value;
 use crate::models::{device_type, hardware_type, attributes, sqlsprinkler};
 use std::error::Error;
-use futures::executor::block_on;
-use reqwest::Client;
+use isahc::ReadResponseExt;
+use regex::Regex;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Device {
@@ -20,6 +20,8 @@ pub struct Device {
     pub last_seen: String,
     pub sw_version: i64,
     pub useruuid: String,
+    pub name: String,
+    pub nicknames: Vec<String>,
 }
 
 impl Device {
@@ -85,6 +87,14 @@ impl Device {
         }
     }
 
+    /// Gets the name of this device.
+    pub fn get_name(&self) -> &String {
+        if &self.name == "" {
+            return &self.guid;
+        }
+        return &self.name;
+    }
+
     /// Converts this device into a json object that google smart home can understand.
     pub fn to_google_device(&self) -> Value {
         let traits = self.get_google_device_traits();
@@ -98,11 +108,12 @@ impl Device {
             "traits": [ traits ],
             "name": {
                 "defaultNames": [
-                    self.guid
+                    self.get_name()
                 ],
                 "name": [
-                    self.guid
+                    self.get_name()
                 ],
+                "nicknames": self.nicknames
             },
             "attributes": attributes,
             "deviceInfo": {
@@ -124,15 +135,27 @@ impl fmt::Display for Device {
     }
 }
 
-async fn get_status_from_sqlsprinkler(ip: &String) -> Result<bool, Box<dyn Error>> {
+// TODO: Move to sqlsprinkler model?
+fn get_status_from_sqlsprinkler(ip: &String) -> Result<bool, Box<dyn Error>> {
     let url = format!("http://{}:3030/system/state", ip);
     println!("Getting state for {} ({})", ip, url);
-    let client = Client::new();
-    let response = block_on(client.get(url).send().await?.text())?;
+    let response = isahc::get(url).unwrap().text().unwrap();
+    println!("{}:?", response);
     println!("done");
     let system_status: sqlsprinkler::SystemState = serde_json::from_str(&response).unwrap();
     Ok(system_status.system_enabled)
 }
+
+
+fn get_zones_from_sqlsprinkler(ip: &String) -> Result<Vec<sqlsprinkler::Zone>, Box<dyn Error>> {
+    let url = format!("http://{}:3030/zone/info", ip);
+    println!("Getting state for {} ({})", ip, url);
+    let response = isahc::get(url).unwrap().text().unwrap();
+    println!("{}:?", response);
+    let zone_list: Vec<sqlsprinkler::Zone> = serde_json::from_str(&response).unwrap();
+    Ok(zone_list)
+}
+
 
 /// Converts a row from the MySQL database to a Device struct.
 
@@ -172,6 +195,12 @@ impl From<Row> for Device {
             None => "000-000-000-000".into(),
         };
 
+        let name: String = match row.get(8) {
+            Some(res) => res,
+            None => "none".into()
+        };
+        let nicknames = vec![format!("{}", name)];
+
         let device = Device {
             ip,
             guid,
@@ -181,8 +210,30 @@ impl From<Row> for Device {
             last_seen,
             sw_version,
             useruuid,
+            name,
+            nicknames,
         };
         device
+    }
+}
+
+impl From<sqlsprinkler::Zone> for Device {
+    fn from(zone: sqlsprinkler::Zone) -> Device {
+        let zone_name = format!("Zone {}", &zone.system_order + 1);
+        let pretty_name = format!("{}", &zone.name);
+        let nicknames = vec![pretty_name, zone_name];
+        Device {
+            ip: "".to_string(),
+            guid: zone.id.to_string(),
+            kind: device_type::Type::SPRINKLER,
+            hardware: hardware_type::Type::PI,
+            last_state: zone.state,
+            last_seen: "".to_string(),
+            sw_version: zone.id as i64,
+            useruuid: "".to_string(),
+            name: zone.name,
+            nicknames,
+        }
     }
 }
 
@@ -197,11 +248,23 @@ impl ::std::default::Default for Device {
             last_seen: "".to_string(),
             sw_version: 0,
             useruuid: "".to_string(),
+            name: "".to_string(),
+            nicknames: vec!["".to_string()],
         }
     }
 }
 
-pub async fn get_device_from_guid(guid: String) -> Device {
+pub fn get_device_from_guid(guid: String) -> Device {
+    // Match the device to a sprinkler zone
+    let re = Regex::new(r"(?im)^[0-9A-Fa-f]{8}[-]?(?:[0-9A-Fa-f]{4}[-]?){3}[0-9A-Fa-f]{12}[-][0-9].?$").unwrap();
+    if re.is_match(guid.as_str()) {
+        let device_list = get_devices();
+        for dev in device_list {
+            if dev.guid == guid {
+                return dev;
+            }
+        }
+    }
     let pool = get_pool();
     let mut conn = pool.get_conn().unwrap();
     let query = format!("SELECT * FROM devices WHERE guid = '{}'", guid);
@@ -210,7 +273,11 @@ pub async fn get_device_from_guid(guid: String) -> Device {
     let mut _device = Device::default();
     for row in rows {
         let _row = row.unwrap();
-        let dev: Device = Device::from(_row);
+        let mut dev: Device = Device::from(_row);
+        if dev.kind == device_type::Type::SQLSPRINLER_HOST {
+            let ip = &dev.ip;
+            dev.last_state = get_status_from_sqlsprinkler(ip).unwrap();
+        }
         return dev;
     }
     return _device;
@@ -227,7 +294,17 @@ pub fn get_devices() -> Vec<Device> {
         let mut dev = Device::from(_row);
         if dev.kind == device_type::Type::SQLSPRINLER_HOST {
             let ip = &dev.ip;
-            dev.last_state = block_on(get_status_from_sqlsprinkler(ip)).unwrap();
+            dev.last_state = get_status_from_sqlsprinkler(ip).unwrap();
+            let sprinkler_list = get_zones_from_sqlsprinkler(ip).unwrap();
+            for zone in sprinkler_list {
+                // Create a device from a sprinkler zone
+                let mut sprinkler_device = Device::from(zone);
+                // Make a new guid in the form of deviceguid-zoneid
+                let new_guid = format!("{}-{}", dev.guid, sprinkler_device.guid);
+                sprinkler_device.guid = new_guid;
+                sprinkler_device.ip = dev.ip.to_string();
+                device_list.push(sprinkler_device);
+            }
         }
         device_list.push(dev);
     }
@@ -243,7 +320,21 @@ pub fn get_devices_useruuid(useruuid: String) -> Vec<Device> {
     let rows = conn.query(query).unwrap();
     for row in rows {
         let _row = row.unwrap();
-        let dev = Device::from(_row);
+        let mut dev = Device::from(_row);
+        if dev.kind == device_type::Type::SQLSPRINLER_HOST {
+            let ip = &dev.ip;
+            dev.last_state = get_status_from_sqlsprinkler(ip).unwrap();
+            let sprinkler_list = get_zones_from_sqlsprinkler(ip).unwrap();
+            for zone in sprinkler_list {
+                // Create a device from a sprinkler zone
+                let mut sprinkler_device = Device::from(zone);
+                // Make a new guid in the form of deviceguid-zoneid
+                let new_guid = format!("{}-{}", dev.guid, sprinkler_device.guid);
+                sprinkler_device.guid = new_guid;
+                sprinkler_device.ip = dev.ip.to_string();
+                device_list.push(sprinkler_device);
+            }
+        }
         device_list.push(dev);
     }
     device_list
