@@ -1,8 +1,11 @@
-use warp::{Filter, http};
-use serde::{Serialize, Deserialize};
-use crate::device::{device};
 use std::collections::HashMap;
-use crate::device::device::get_device_from_guid;
+
+use serde::{Deserialize, Serialize};
+use warp::{Filter, http};
+
+use crate::models::device;
+use crate::models::device::get_device_from_guid;
+use futures::executor::block_on;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -32,15 +35,18 @@ pub(crate) async fn run() {
         .and_then(list_devices);
     let list_google_devices = warp::get()
         .and(warp::path("google"))
-        .and(warp::path::end())
-        .and_then(list_devices_google);
-    let get_device_status = warp::get()
-        .and(warp::path("device"))
-        .and(warp::path::param())
-        .map(|_guid: String| {
-           let device = get_device_from_guid(_guid);
-           format!("{}",device.last_state)
+        .and(warp::header("authorization"))
+        .map(|token: String| {
+            warp::reply::with_status(list_devices_google(token),http::StatusCode::OK)
         });
+
+    // let get_device_status = warp::get()
+    //     .and(warp::path("device"))
+    //     .and(warp::path::param())
+    //     .map(|_guid: String| {
+    //         let device = get_device_from_guid(_guid).await;
+    //         format!("{}", device.last_state)
+    //     });
     let device_update = warp::put()
         .and(warp::path("device"))
         .and(warp::path::end())
@@ -58,7 +64,7 @@ pub(crate) async fn run() {
                 let ip = _map.get("ip").unwrap().to_string();
                 let _state: String = _map.get("state").unwrap().to_string();
                 let _sw_version: String = _map.get("sw_version").unwrap().to_string();
-                let state = match _state.parse::<bool>(){
+                let state = match _state.parse::<bool>() {
                     Ok(val) => val,
                     Err(_val) => _state == "1"
                 };
@@ -77,8 +83,8 @@ pub(crate) async fn run() {
         .or(list_devices)
         .or(device_update)
         .or(device_update_arduino)
-        .or(get_device_status)
-        .or(list_google_devices);
+    // .or(get_device_status);
+    .or(list_google_devices);
     warp::serve(routes)
         .run(([0, 0, 0, 0], 3030))
         .await;
@@ -98,7 +104,7 @@ fn sys_put() -> impl Filter<Extract=(DeviceUpdate, ), Error=warp::Rejection> + C
 
 
 async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Rejection> {
-    let device = device::get_device_from_guid(state.guid);
+    let device = device::get_device_from_guid(state.guid).await;
     let guid = &device.guid;
     let mut endpoint = "";
     if state.state {
@@ -126,29 +132,30 @@ async fn list_devices() -> Result<impl warp::Reply, warp::Rejection> {
     Ok(warp::reply::with_status(devices, http::StatusCode::OK))
 }
 
-async fn list_devices_google() -> Result<impl warp::Reply, warp::Rejection> {
-    let devices = &device::get_devices();
+fn list_devices_google(token: String) -> String {
+    let devices = device::get_devices_useruuid(token);
     let mut json_arr = vec![];
     for device in devices.iter() {
         json_arr.push(device.to_google_device());
     }
+    println!("Done getting google devices.");
     let json_output = serde_json::json!(json_arr);
     let output = format!("{}", json_output);
-    Ok(warp::reply::with_status(output, http::StatusCode::OK))
+    output
 }
 
 async fn do_device_update(_device: DeviceUpdate) -> Result<impl warp::Reply, warp::Rejection> {
-    let status = database_update(_device);
-    Ok(warp::reply::with_status(status, http::StatusCode::ACCEPTED))
+    let status: String = database_update(_device);
+    Ok(warp::reply::with_status(status, http::StatusCode::OK))
 }
 
 fn database_update(_device: DeviceUpdate) -> String {
-    let device = device::get_device_from_guid(_device.guid);
+    let device = block_on(device::get_device_from_guid(_device.guid));
     let status = match device.database_update(_device.state, _device.ip, _device.sw_version) {
         true => "updated".to_string(),
         false => "an error occurred.".to_string()
     };
-    return status;
+    status
 }
 
 async fn do_device_update_hashmap(_map: HashMap<String, String>) -> Result<impl warp::Reply, warp::Rejection> {

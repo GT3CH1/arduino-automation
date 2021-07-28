@@ -1,16 +1,12 @@
 use mysql::Pool;
 use std::env;
-use crate::device::device::get_devices;
+use models::device::get_devices;
 
-mod device;
 mod daemon;
+mod models;
 
 fn main() {
     println!("Hello, world!");
-    let list = get_devices();
-    for device in list.iter() {
-        println!("{}", device);
-    }
     daemon::run();
 }
 
