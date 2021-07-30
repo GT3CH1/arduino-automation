@@ -6,9 +6,7 @@ use std::fmt;
 use std::str::FromStr;
 use mysql::serde_json::Value;
 use crate::models::{device_type, hardware_type, attributes, sqlsprinkler};
-use std::error::Error;
-use isahc::ReadResponseExt;
-use regex::Regex;
+use crate::models::sqlsprinkler::check_if_zone;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Device {
@@ -135,28 +133,6 @@ impl fmt::Display for Device {
     }
 }
 
-// TODO: Move to sqlsprinkler model?
-fn get_status_from_sqlsprinkler(ip: &String) -> Result<bool, Box<dyn Error>> {
-    let url = format!("http://{}:3030/system/state", ip);
-    println!("Getting state for {} ({})", ip, url);
-    let response = isahc::get(url).unwrap().text().unwrap();
-    println!("{}:?", response);
-    println!("done");
-    let system_status: sqlsprinkler::SystemState = serde_json::from_str(&response).unwrap();
-    Ok(system_status.system_enabled)
-}
-
-
-fn get_zones_from_sqlsprinkler(ip: &String) -> Result<Vec<sqlsprinkler::Zone>, Box<dyn Error>> {
-    let url = format!("http://{}:3030/zone/info", ip);
-    println!("Getting state for {} ({})", ip, url);
-    let response = isahc::get(url).unwrap().text().unwrap();
-    println!("{}:?", response);
-    let zone_list: Vec<sqlsprinkler::Zone> = serde_json::from_str(&response).unwrap();
-    Ok(zone_list)
-}
-
-
 /// Converts a row from the MySQL database to a Device struct.
 
 impl From<Row> for Device {
@@ -254,17 +230,19 @@ impl ::std::default::Default for Device {
     }
 }
 
-pub fn get_device_from_guid(guid: String) -> Device {
+
+/// Gets the device from the database that corresponds to the given UUID.  If the device has the following pattern:
+/// xxxxxxxx-yyy-zzzzzzzzzzzz-n then we will get the device status from the SQLSprinkler host.
+/// # Params
+///     *   `guid`  The GUID of the device we want to get.
+/// # Return
+///     *   A device that corresponds to the given uuid, if there is no match, return a default device.
+pub fn get_device_from_guid(guid: &String) -> Device {
     // Match the device to a sprinkler zone
-    let re = Regex::new(r"(?im)^[0-9A-Fa-f]{8}[-]?(?:[0-9A-Fa-f]{4}[-]?){3}[0-9A-Fa-f]{12}[-][0-9].?$").unwrap();
-    if re.is_match(guid.as_str()) {
-        let device_list = get_devices();
-        for dev in device_list {
-            if dev.guid == guid {
-                return dev;
-            }
-        }
+    if check_if_zone(guid) {
+        return sqlsprinkler::get_device_from_sqlsprinkler(guid.clone());
     }
+
     let pool = get_pool();
     let mut conn = pool.get_conn().unwrap();
     let query = format!("SELECT * FROM devices WHERE guid = '{}'", guid);
@@ -276,13 +254,17 @@ pub fn get_device_from_guid(guid: String) -> Device {
         let mut dev: Device = Device::from(_row);
         if dev.kind == device_type::Type::SQLSPRINLER_HOST {
             let ip = &dev.ip;
-            dev.last_state = get_status_from_sqlsprinkler(ip).unwrap();
+            dev.last_state = sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap();
         }
         return dev;
     }
     return _device;
 }
 
+
+/// Gets all of the devices that are connected to this user in the database.
+/// # Return
+///     * A `Vec<Device>` containing all of the device information.
 pub fn get_devices() -> Vec<Device> {
     let pool = get_pool();
     let mut conn = pool.get_conn().unwrap();
@@ -292,25 +274,17 @@ pub fn get_devices() -> Vec<Device> {
         let _row = row.unwrap();
         println!("Got a device.");
         let mut dev = Device::from(_row);
-        if dev.kind == device_type::Type::SQLSPRINLER_HOST {
-            let ip = &dev.ip;
-            dev.last_state = get_status_from_sqlsprinkler(ip).unwrap();
-            let sprinkler_list = get_zones_from_sqlsprinkler(ip).unwrap();
-            for zone in sprinkler_list {
-                // Create a device from a sprinkler zone
-                let mut sprinkler_device = Device::from(zone);
-                // Make a new guid in the form of deviceguid-zoneid
-                let new_guid = format!("{}-{}", dev.guid, sprinkler_device.guid);
-                sprinkler_device.guid = new_guid;
-                sprinkler_device.ip = dev.ip.to_string();
-                device_list.push(sprinkler_device);
-            }
-        }
+        sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
         device_list.push(dev);
     }
     device_list
 }
 
+/// Gets all of the devices that coorespond to the given User UUID in the database.
+/// # Params
+///     *   `useruuid` A string representing the UUID of the user we want to query.
+/// # Return
+///     *   A `Vec<Device>` containing all of the devices that belong to `useruuid`
 pub fn get_devices_useruuid(useruuid: String) -> Vec<Device> {
     let pool = get_pool();
     let mut conn = pool.get_conn().unwrap();
@@ -321,20 +295,7 @@ pub fn get_devices_useruuid(useruuid: String) -> Vec<Device> {
     for row in rows {
         let _row = row.unwrap();
         let mut dev = Device::from(_row);
-        if dev.kind == device_type::Type::SQLSPRINLER_HOST {
-            let ip = &dev.ip;
-            dev.last_state = get_status_from_sqlsprinkler(ip).unwrap();
-            let sprinkler_list = get_zones_from_sqlsprinkler(ip).unwrap();
-            for zone in sprinkler_list {
-                // Create a device from a sprinkler zone
-                let mut sprinkler_device = Device::from(zone);
-                // Make a new guid in the form of deviceguid-zoneid
-                let new_guid = format!("{}-{}", dev.guid, sprinkler_device.guid);
-                sprinkler_device.guid = new_guid;
-                sprinkler_device.ip = dev.ip.to_string();
-                device_list.push(sprinkler_device);
-            }
-        }
+        sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
         device_list.push(dev);
     }
     device_list

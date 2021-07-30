@@ -42,7 +42,7 @@ pub(crate) async fn run() {
         .and(warp::path("device"))
         .and(warp::path::param())
         .map(|_guid: String| {
-            let device = device::get_device_from_guid(_guid);
+            let device = device::get_device_from_guid(&_guid);
             format!("{}", device)
         });
     let device_update = warp::put()
@@ -100,37 +100,22 @@ fn sys_put() -> impl Filter<Extract=(DeviceUpdate, ), Error=warp::Rejection> + C
         .and(warp::body::json())
 }
 
-
+/// Sends a change state request to the device.
+/// # Params
+///     *   `state` A DeviceState representing the device we want to change.
 async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Rejection> {
     // Match the device to a sprinkler zone
-    let re = Regex::new(r"(?im)^[0-9A-Fa-f]{8}[-]?(?:[0-9A-Fa-f]{4}[-]?){3}[0-9A-Fa-f]{12}[-][0-9].?$").unwrap();
-    if re.is_match(state.guid.as_str()) {
-        let device_list = get_devices();
-        let mut device = device::Device::default();
-        for dev in device_list {
-            if dev.guid == state.guid {
-                device = dev;
-                break;
-            }
-        }
-        let status = models::sqlsprinkler::set_zone(device.ip, state.state, device.sw_version-1);
+    let device = device::get_device_from_guid(&state.guid);
+    if models::sqlsprinkler::check_if_zone(&state.guid) {
+        let status = models::sqlsprinkler::set_zone(device.ip, state.state, device.sw_version - 1);
         let response = match status {
             true => "ok",
             false => "fail",
         };
         Ok(warp::reply::with_status(response, http::StatusCode::OK))
     } else {
-        let device = device::get_device_from_guid(state.guid);
-        let guid = &device.guid;
-        let mut endpoint = "";
-        if state.state {
-            endpoint = "on";
-        } else {
-            endpoint = "off";
-        }
-
         // If the device is a sql sprinkler host, we need to send the request to it...
-        if device.kind == models::device_type::Type::SQLSPRINLER_HOST {
+        if device.kind == models::device_type::Type::SQL_SPRINKLER_HOST {
             let status = models::sqlsprinkler::set_system(device.ip, state.state);
             let response = match status {
                 true => "ok",
@@ -139,20 +124,25 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
             Ok(warp::reply::with_status(response, http::StatusCode::OK))
         } else {
             // Everything else is an arduino.
-            let url = device.get_api_url_with_param(endpoint.to_string(), guid.to_string());
+            let endpoint = match state.state {
+                true => "on",
+                false => "off",
+            };
+            let url = device.get_api_url_with_param(endpoint.to_string(), device.guid.to_string());
             isahc::get(url).unwrap().status().is_success();
             Ok(warp::reply::with_status("ok", http::StatusCode::OK))
         }
     }
 }
 
+/// List all devices.
 async fn list_devices() -> Result<impl warp::Reply, warp::Rejection> {
     let devices = serde_json::to_string(&device::get_devices()).unwrap();
     Ok(warp::reply::with_status(devices, http::StatusCode::OK))
 }
 
 // fn list_devices_google(token: String) -> String {
-async fn list_devices_google() -> Result<impl warp::Reply, warp::Rejection>  {
+async fn list_devices_google() -> Result<impl warp::Reply, warp::Rejection> {
     // let devices = device::get_devices_useruuid(token);
     let devices = device::get_devices();
     let mut json_arr = vec![];
@@ -165,13 +155,15 @@ async fn list_devices_google() -> Result<impl warp::Reply, warp::Rejection>  {
     Ok(warp::reply::with_status(output, http::StatusCode::OK))
 }
 
+/// Updates the given device in the database.
 async fn do_device_update(_device: DeviceUpdate) -> Result<impl warp::Reply, warp::Rejection> {
     let status: String = database_update(_device);
     Ok(warp::reply::with_status(status, http::StatusCode::OK))
 }
 
+/// Updates the device in the database.
 fn database_update(_device: DeviceUpdate) -> String {
-    let device = device::get_device_from_guid(_device.guid);
+    let device = device::get_device_from_guid(&_device.guid);
     let status = match device.database_update(_device.state, _device.ip, _device.sw_version) {
         true => "updated".to_string(),
         false => "an error occurred.".to_string()
