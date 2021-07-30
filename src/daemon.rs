@@ -5,8 +5,6 @@ use warp::{Filter, http};
 
 use crate::models::device;
 use crate::models;
-use regex::Regex;
-use crate::models::device::get_devices;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
