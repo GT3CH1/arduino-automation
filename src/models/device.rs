@@ -34,14 +34,14 @@ impl Device {
     pub fn get_attributes(&self) -> Value {
         let data = match self.kind {
             device_type::Type::GARAGE => attributes::garage_attribute(),
-            device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::ROUTER | device_type::Type::SQLSPRINLER_HOST => attributes::on_off_attribute()
+            device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::ROUTER | device_type::Type::SQL_SPRINKLER_HOST => attributes::on_off_attribute()
         };
         data
     }
 
     pub fn get_api_url_with_param(&self, endpoint: String, param: String) -> String {
         let url = match self.kind {
-            device_type::Type::SQLSPRINLER_HOST => format!("https://api.peasenet.com/sprinkler/systems/{}/state", self.guid),
+            device_type::Type::SQL_SPRINKLER_HOST => format!("https://api.peasenet.com/sprinkler/systems/{}/state", self.guid),
             _ => format!("{}?param={}", self.get_api_url(endpoint), param)
         };
         url
@@ -62,7 +62,7 @@ impl Device {
     pub fn get_google_device_type(&self) -> &str {
         match self.kind {
             device_type::Type::LIGHT => "action.devices.types.LIGHT",
-            device_type::Type::SWITCH | device_type::Type::SQLSPRINLER_HOST => "action.devices.types.SWITCH",
+            device_type::Type::SWITCH | device_type::Type::SQL_SPRINKLER_HOST => "action.devices.types.SWITCH",
             device_type::Type::GARAGE => "action.devices.types.GARAGE",
             device_type::Type::SPRINKLER => "action.devices.types.SPRINKLER",
             device_type::Type::ROUTER => "action.devices.types.ROUTER"
@@ -71,7 +71,7 @@ impl Device {
 
     pub fn get_google_device_traits(&self) -> &str {
         match self.kind {
-            device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::SQLSPRINLER_HOST => "action.devices.traits.OnOff",
+            device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::SQL_SPRINKLER_HOST => "action.devices.traits.OnOff",
             device_type::Type::GARAGE => "action.devices.traits.OpenClose",
             device_type::Type::ROUTER => "action.devices.traits.Reboot"
         }
@@ -252,7 +252,7 @@ pub fn get_device_from_guid(guid: &String) -> Device {
     for row in rows {
         let _row = row.unwrap();
         let mut dev: Device = Device::from(_row);
-        if dev.kind == device_type::Type::SQLSPRINLER_HOST {
+        if dev.kind == device_type::Type::SQL_SPRINKLER_HOST {
             let ip = &dev.ip;
             dev.last_state = sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap();
         }
