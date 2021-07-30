@@ -8,7 +8,7 @@ pub enum Type {
     GARAGE,
     SPRINKLER,
     ROUTER,
-    SQL_SPRINKLER_HOST,
+    SqlSprinklerHost,
 }
 
 impl FromStr for Type {
@@ -20,7 +20,7 @@ impl FromStr for Type {
             "GARAGE" => Ok(Type::GARAGE),
             "SPRINKLER" => Ok(Type::SPRINKLER),
             "ROUTER" => Ok(Type::ROUTER),
-            "SQL_SPRINKLER_HOST" => Ok(Type::SQL_SPRINKLER_HOST),
+            "SQLSPRINKLER_HOST" => Ok(Type::SqlSprinklerHost),
             _ => Err(())
         }
     }

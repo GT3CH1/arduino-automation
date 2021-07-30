@@ -113,7 +113,7 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
         Ok(warp::reply::with_status(response, http::StatusCode::OK))
     } else {
         // If the device is a sql sprinkler host, we need to send the request to it...
-        if device.kind == models::device_type::Type::SQL_SPRINKLER_HOST {
+        if device.kind == models::device_type::Type::SqlSprinklerHost {
             let status = models::sqlsprinkler::set_system(device.ip, state.state);
             let response = match status {
                 true => "ok",

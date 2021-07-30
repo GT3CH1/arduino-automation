@@ -100,7 +100,7 @@ fn get_zones_from_sqlsprinkler(ip: &String) -> Result<Vec<Zone>, Box<dyn Error>>
 /// # Return
 ///     * True if the device is a sqlsprinkler host.
 pub fn check_if_device_is_sqlsprinkler_host(dev: &mut Device, device_list: &mut Vec<Device>) -> bool {
-    if dev.kind == device_type::Type::SQL_SPRINKLER_HOST {
+    if dev.kind == device_type::Type::SqlSprinklerHost {
         let ip = &dev.ip;
         dev.last_state = get_status_from_sqlsprinkler(ip).unwrap();
         let sprinkler_list = get_zones_from_sqlsprinkler(ip).unwrap();
