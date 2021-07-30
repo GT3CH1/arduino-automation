@@ -280,6 +280,7 @@ pub fn get_devices() -> Vec<Device> {
     device_list
 }
 
+/*
 /// Gets all of the devices that coorespond to the given User UUID in the database.
 /// # Params
 ///     *   `useruuid` A string representing the UUID of the user we want to query.
@@ -300,3 +301,4 @@ pub fn get_devices_useruuid(useruuid: String) -> Vec<Device> {
     }
     device_list
 }
+ */
