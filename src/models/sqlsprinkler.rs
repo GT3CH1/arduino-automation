@@ -78,7 +78,7 @@ pub(crate) fn get_status_from_sqlsprinkler(ip: &String) -> Result<bool, Box<dyn 
 
 /// Gets all the zones from the SQLSprinkler host.
 /// # Params
-///     *   `ip` A string representing the IP address of the SQLSPrinkler host.
+///     *   `ip` A string representing the IP address of the SQLSprinkler host.
 /// # Returns
 ///     * A `Vec<Zone>` Representing all of the SQLSprinkler zones on the given host.  Or, if an
 /// error occurs, we will get that error.

@@ -5,13 +5,13 @@ use warp::{Filter, http};
 
 use crate::models::device;
 use crate::models;
-use futures::executor::block_on;
-use futures::task::Spawn;
+use serde_json::Value;
+
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
     guid: String,
-    state: bool,
+    state: Value,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,36 +104,44 @@ fn sys_put() -> impl Filter<Extract=(DeviceUpdate, ), Error=warp::Rejection> + C
 /// # Params
 ///     *   `state` A DeviceState representing the device we want to change.
 async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Rejection> {
-    // Match the device to a sprinkler zone
     let device = device::get_device_from_guid(&state.guid);
+
+    // Parse the state
+    let json = serde_json::from_str::<Value>(state.state.as_str().unwrap()).unwrap();
+
     if models::sqlsprinkler::check_if_zone(&state.guid) {
-        let status = models::sqlsprinkler::set_zone(device.ip, state.state, device.sw_version - 1);
+        // Match the device to a sprinkler zone
+        let _state = json["state"] == "true";
+        let status = models::sqlsprinkler::set_zone(device.ip, _state, device.sw_version - 1);
         let response = match status {
             true => "ok",
             false => "fail",
         };
-        Ok(warp::reply::with_status(response, http::StatusCode::OK))
+        Ok(warp::reply::with_status(response.to_string(), http::StatusCode::OK))
     } else {
         if device.kind == models::device_type::Type::SqlSprinklerHost {
             // If the device is a sql sprinkler host, we need to send the request to it...
-            let status = models::sqlsprinkler::set_system(device.ip, state.state);
+            let _state = json["state"] == "true";
+            let status = models::sqlsprinkler::set_system(device.ip, _state);
             let response = match status {
                 true => "ok",
                 false => "fail",
             };
-            Ok(warp::reply::with_status(response, http::StatusCode::OK))
+            Ok(warp::reply::with_status(response.to_string(), http::StatusCode::OK))
         } else if device.kind == models::device_type::Type::TV {
             // Check if the device is a LG TV.
-
+            let rep = serde_json::to_value(models::tv::run_command()).unwrap().to_string();
+            Ok(warp::reply::with_status(rep, http::StatusCode::OK))
         } else {
             // Everything else is an arduino.
-            let endpoint = match state.state {
+            let _state = json["state"] == "true";
+            let endpoint = match _state {
                 true => "on",
                 false => "off",
             };
             let url = device.get_api_url_with_param(endpoint.to_string(), device.guid.to_string());
             isahc::get(url).unwrap().status().is_success();
-            Ok(warp::reply::with_status("ok", http::StatusCode::OK))
+            Ok(warp::reply::with_status("ok".to_string(), http::StatusCode::OK))
         }
     }
 }
@@ -179,7 +187,7 @@ fn database_update(_device: DeviceUpdate) -> String {
 fn test_device_filter_allowed() {
     let res =
         block_on(warp::test::request()
-        .path("device")
-        .matches(&warp::get()));
+            .path("device")
+            .matches(&warp::get()));
     assert!(res);
 }

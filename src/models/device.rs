@@ -20,6 +20,7 @@ pub struct Device {
     pub useruuid: String,
     pub name: String,
     pub nicknames: Vec<String>,
+    pub extra_attr: serde_json::Value,
 }
 
 impl Device {
@@ -71,12 +72,12 @@ impl Device {
         }
     }
 
-    pub fn get_google_device_traits(&self) -> &str {
+    pub fn get_google_device_traits(&self) -> Vec<&str> {
         match self.kind {
-            device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::SqlSprinklerHost => "action.devices.traits.OnOff",
-            device_type::Type::GARAGE => "action.devices.traits.OpenClose",
-            device_type::Type::ROUTER => "action.devices.traits.Reboot",
-            device_type::Type::TV => traits::tv_traits()
+            device_type::Type::GARAGE => traits::open_close_traits(),
+            device_type::Type::ROUTER => traits::reboot_traits(),
+            device_type::Type::TV => traits::tv_traits(),
+            _ => traits::on_off_traits()
         }
     }
 
@@ -107,7 +108,7 @@ impl Device {
 
             "id": self.guid,
             "type": device_type,
-            "traits": [ traits ],
+            "traits": traits,
             "name": {
                 "defaultNames": [
                     self.get_name()
@@ -179,7 +180,7 @@ impl From<Row> for Device {
             None => "none".into()
         };
         let nicknames = vec![format!("{}", name)];
-
+        let extra_attr: Value = serde_json::json!(null);
         let device = Device {
             ip,
             guid,
@@ -191,6 +192,7 @@ impl From<Row> for Device {
             useruuid,
             name,
             nicknames,
+            extra_attr,
         };
         device
     }
@@ -201,6 +203,7 @@ impl From<sqlsprinkler::Zone> for Device {
         let zone_name = format!("Zone {}", &zone.system_order + 1);
         let pretty_name = format!("{}", &zone.name);
         let nicknames = vec![pretty_name, zone_name];
+        let extra_attr: Value = serde_json::json!(null);
         Device {
             ip: "".to_string(),
             guid: zone.id.to_string(),
@@ -212,12 +215,14 @@ impl From<sqlsprinkler::Zone> for Device {
             useruuid: "".to_string(),
             name: zone.name,
             nicknames,
+            extra_attr,
         }
     }
 }
 
 impl ::std::default::Default for Device {
     fn default() -> Device {
+        let extra_attr: Value = serde_json::json!(null);
         Device {
             ip: "".to_string(),
             guid: "".to_string(),
@@ -229,6 +234,7 @@ impl ::std::default::Default for Device {
             useruuid: "".to_string(),
             name: "".to_string(),
             nicknames: vec!["".to_string()],
+            extra_attr,
         }
     }
 }
@@ -259,6 +265,9 @@ pub fn get_device_from_guid(guid: &String) -> Device {
             let ip = &dev.ip;
             dev.last_state = sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap();
         }
+        if dev.kind == device_type::Type::TV {
+            dev.extra_attr = serde_json::json!(tv::run_command())
+        }
         return dev;
     }
     return _device;
@@ -278,30 +287,10 @@ pub fn get_devices() -> Vec<Device> {
         println!("Got a device.");
         let mut dev = Device::from(_row);
         sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
+        if dev.kind == device_type::Type::TV {
+            dev.extra_attr = serde_json::json!(tv::run_command())
+        }
         device_list.push(dev);
     }
     device_list
 }
-
-/*
-/// Gets all of the devices that coorespond to the given User UUID in the database.
-/// # Params
-///     *   `useruuid` A string representing the UUID of the user we want to query.
-/// # Return
-///     *   A `Vec<Device>` containing all of the devices that belong to `useruuid`
-pub fn get_devices_useruuid(useruuid: String) -> Vec<Device> {
-    let pool = get_pool();
-    let mut conn = pool.get_conn().unwrap();
-    let mut device_list: Vec<Device> = vec![];
-    let query = format!("SELECT * FROM devices WHERE useruuid='{}'", useruuid);
-    println!("{}", useruuid);
-    let rows = conn.query(query).unwrap();
-    for row in rows {
-        let _row = row.unwrap();
-        let mut dev = Device::from(_row);
-        sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
-        device_list.push(dev);
-    }
-    device_list
-}
- */
