@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use warp::{Filter, http};
 
-use crate::models::device;
 use crate::models;
-use serde_json::Value;
-
+use crate::models::device;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -180,14 +179,4 @@ fn database_update(_device: DeviceUpdate) -> String {
         false => "an error occurred.".to_string()
     };
     status
-}
-
-/* TESTING BELOW */
-#[test]
-fn test_device_filter_allowed() {
-    let res =
-        block_on(warp::test::request()
-            .path("device")
-            .matches(&warp::get()));
-    assert!(res);
 }
