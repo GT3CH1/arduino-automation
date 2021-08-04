@@ -107,7 +107,7 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
     let device = device::get_device_from_guid(&state.guid);
 
     // Parse the state
-    let json = serde_json::from_str::<Value>(state.state.as_str().unwrap()).unwrap();
+    let json: serde_json::Value = serde_json::from_value(state.state).unwrap();
 
     if models::sqlsprinkler::check_if_zone(&state.guid) {
         // Match the device to a sprinkler zone
