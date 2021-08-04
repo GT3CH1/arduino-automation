@@ -9,6 +9,7 @@ pub enum Type {
     SPRINKLER,
     ROUTER,
     SqlSprinklerHost,
+    TV,
 }
 
 impl FromStr for Type {
@@ -21,6 +22,7 @@ impl FromStr for Type {
             "SPRINKLER" => Ok(Type::SPRINKLER),
             "ROUTER" => Ok(Type::ROUTER),
             "SQLSPRINKLER_HOST" => Ok(Type::SqlSprinklerHost),
+            "TV" => Ok(Type::TV),
             _ => Err(())
         }
     }

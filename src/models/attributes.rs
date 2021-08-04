@@ -12,3 +12,15 @@ pub fn on_off_attribute() -> Value {
         "queryOnlyOnOff": false
     })
 }
+
+pub fn tv_attribute() -> Value {
+    let tv = crate::models::tv::run_command();
+    serde_json::json!({
+        "commandOnlyOnOff": false,
+        "queryOnlyOnOff": false,
+        "volumeMaxLevel": tv.volumeMax,
+        "volumeCanMuteAndUnmute": true,
+        "commandOnlyVolume": false,
+        "volumeDefaultPercentage": 10
+    })
+}

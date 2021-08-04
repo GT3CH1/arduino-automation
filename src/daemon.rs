@@ -5,6 +5,8 @@ use warp::{Filter, http};
 
 use crate::models::device;
 use crate::models;
+use futures::executor::block_on;
+use futures::task::Spawn;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -112,14 +114,17 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
         };
         Ok(warp::reply::with_status(response, http::StatusCode::OK))
     } else {
-        // If the device is a sql sprinkler host, we need to send the request to it...
         if device.kind == models::device_type::Type::SqlSprinklerHost {
+            // If the device is a sql sprinkler host, we need to send the request to it...
             let status = models::sqlsprinkler::set_system(device.ip, state.state);
             let response = match status {
                 true => "ok",
                 false => "fail",
             };
             Ok(warp::reply::with_status(response, http::StatusCode::OK))
+        } else if device.kind == models::device_type::Type::TV {
+            // Check if the device is a LG TV.
+
         } else {
             // Everything else is an arduino.
             let endpoint = match state.state {
@@ -167,4 +172,14 @@ fn database_update(_device: DeviceUpdate) -> String {
         false => "an error occurred.".to_string()
     };
     status
+}
+
+/* TESTING BELOW */
+#[test]
+fn test_device_filter_allowed() {
+    let res =
+        block_on(warp::test::request()
+        .path("device")
+        .matches(&warp::get()));
+    assert!(res);
 }

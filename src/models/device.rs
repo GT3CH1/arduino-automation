@@ -5,7 +5,7 @@ use crate::{get_pool};
 use std::fmt;
 use std::str::FromStr;
 use mysql::serde_json::Value;
-use crate::models::{device_type, hardware_type, attributes, sqlsprinkler};
+use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,7 +34,8 @@ impl Device {
     pub fn get_attributes(&self) -> Value {
         let data = match self.kind {
             device_type::Type::GARAGE => attributes::garage_attribute(),
-            device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::ROUTER | device_type::Type::SqlSprinklerHost => attributes::on_off_attribute()
+            device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::ROUTER | device_type::Type::SqlSprinklerHost => attributes::on_off_attribute(),
+            device_type::Type::TV => attributes::tv_attribute(),
         };
         data
     }
@@ -65,7 +66,8 @@ impl Device {
             device_type::Type::SWITCH | device_type::Type::SqlSprinklerHost => "action.devices.types.SWITCH",
             device_type::Type::GARAGE => "action.devices.types.GARAGE",
             device_type::Type::SPRINKLER => "action.devices.types.SPRINKLER",
-            device_type::Type::ROUTER => "action.devices.types.ROUTER"
+            device_type::Type::ROUTER => "action.devices.types.ROUTER",
+            device_type::Type::TV => "action.devices.types.TV"
         }
     }
 
@@ -73,7 +75,8 @@ impl Device {
         match self.kind {
             device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::SqlSprinklerHost => "action.devices.traits.OnOff",
             device_type::Type::GARAGE => "action.devices.traits.OpenClose",
-            device_type::Type::ROUTER => "action.devices.traits.Reboot"
+            device_type::Type::ROUTER => "action.devices.traits.Reboot",
+            device_type::Type::TV => traits::tv_traits()
         }
     }
 
@@ -81,7 +84,8 @@ impl Device {
         match self.hardware {
             hardware_type::Type::ARDUINO => "Arduino",
             hardware_type::Type::PI => "Raspberry Pi",
-            hardware_type::Type::OTHER => "Other"
+            hardware_type::Type::OTHER => "Other",
+            hardware_type::Type::LG => "LG",
         }
     }
 
@@ -139,7 +143,6 @@ impl From<Row> for Device {
     fn from(row: Row) -> Device {
         let ip: String = row.get(0).unwrap();
         let guid: String = row.get(1).unwrap();
-
 
         let kind_type: String = row.get(2).unwrap();
         let kind = device_type::Type::from_str(kind_type.as_str()).unwrap();

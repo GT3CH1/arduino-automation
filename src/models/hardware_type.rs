@@ -6,6 +6,7 @@ pub enum Type {
     ARDUINO,
     PI,
     OTHER,
+    LG,
 }
 
 impl FromStr for Type {
@@ -15,6 +16,7 @@ impl FromStr for Type {
             "ARDUINO" => Ok(Type::ARDUINO),
             "PI" => Ok(Type::PI),
             "OTHER" => Ok(Type::OTHER),
+            "LG" => Ok(Type::LG),
             _ => Err(())
         }
     }
