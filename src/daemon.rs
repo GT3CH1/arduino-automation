@@ -107,10 +107,9 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
 
     // Parse the state
     let json: serde_json::Value = serde_json::from_value(state.state).unwrap();
-
     if models::sqlsprinkler::check_if_zone(&state.guid) {
         // Match the device to a sprinkler zone
-        let _state = json["state"] == "true";
+        let _state: bool = serde_json::from_value(json).unwrap();
         let status = models::sqlsprinkler::set_zone(device.ip, _state, device.sw_version - 1);
         let response = match status {
             true => "ok",
@@ -120,7 +119,7 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
     } else {
         if device.kind == models::device_type::Type::SqlSprinklerHost {
             // If the device is a sql sprinkler host, we need to send the request to it...
-            let _state = json["state"] == "true";
+            let _state: bool = serde_json::from_value(json).unwrap();
             let status = models::sqlsprinkler::set_system(device.ip, _state);
             let response = match status {
                 true => "ok",
@@ -129,11 +128,20 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
             Ok(warp::reply::with_status(response.to_string(), http::StatusCode::OK))
         } else if device.kind == models::device_type::Type::TV {
             // Check if the device is a LG TV.
-            let rep = serde_json::to_value(models::tv::run_command()).unwrap().to_string();
-            Ok(warp::reply::with_status(rep, http::StatusCode::OK))
+            if json["volumeLevel"] != serde_json::json!(null) {
+                let vol_state: models::tv::SetVolState = serde_json::from_value(json["volumeLevel"].clone()).unwrap();
+                models::tv::set_volume_state(vol_state);
+            }
+            if json["mute"] != serde_json::json!(null) {
+                let mute_state: models::tv::SetMuteState = serde_json::from_value(json["mute"].clone()).unwrap();
+                models::tv::set_mute_state(mute_state);
+            }
+            // let volstate: models::tv::SetVolState = serde_json::from_value(json).unwrap();
+            // let status = models::tv::set_volume_state(volstate);
+            Ok(warp::reply::with_status("set volume state".to_string(), http::StatusCode::OK))
         } else {
             // Everything else is an arduino.
-            let _state = json["state"] == "true";
+            let _state: bool = serde_json::from_value(json).unwrap();
             let endpoint = match _state {
                 true => "on",
                 false => "off",

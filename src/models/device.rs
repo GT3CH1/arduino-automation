@@ -266,7 +266,7 @@ pub fn get_device_from_guid(guid: &String) -> Device {
             dev.last_state = sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap();
         }
         if dev.kind == device_type::Type::TV {
-            dev.extra_attr = serde_json::json!(tv::run_command())
+            dev.extra_attr = serde_json::json!(tv::get_volume_state())
         }
         return dev;
     }
@@ -288,7 +288,7 @@ pub fn get_devices() -> Vec<Device> {
         let mut dev = Device::from(_row);
         sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
         if dev.kind == device_type::Type::TV {
-            dev.extra_attr = serde_json::json!(tv::run_command())
+            dev.extra_attr = serde_json::json!(tv::get_volume_state())
         }
         device_list.push(dev);
     }
