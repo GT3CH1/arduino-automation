@@ -40,6 +40,7 @@ dependencies = [
  "structopt",
  "tokio",
  "uuid 0.8.2",
+ "wake-on-lan",
  "warp",
 ]
 
@@ -1935,6 +1936,12 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
+name = "wake-on-lan"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ccf60b60ad7e5b1b37372c5134cbcab4db0706c231d212e0c643a077462bc8f"
 
 [[package]]
 name = "waker-fn"

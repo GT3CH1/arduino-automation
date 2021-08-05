@@ -132,10 +132,12 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
                 let vol_state: models::tv::SetVolState = serde_json::from_value(json["volumeLevel"].clone()).unwrap();
                 models::tv::set_volume_state(vol_state);
             }
-            if json["mute"] != serde_json::json!(null) {
+            else if json["mute"] != serde_json::json!(null) {
                 let mute_state: models::tv::SetMuteState = serde_json::from_value(json["mute"].clone()).unwrap();
                 models::tv::set_mute_state(mute_state);
             }
+            let _state: bool = serde_json::from_value(json).unwrap();
+            models::tv::set_power_state(_state);
             // let volstate: models::tv::SetVolState = serde_json::from_value(json).unwrap();
             // let status = models::tv::set_volume_state(volstate);
             Ok(warp::reply::with_status("set volume state".to_string(), http::StatusCode::OK))

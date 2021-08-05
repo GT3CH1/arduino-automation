@@ -4,6 +4,7 @@ use crate::{get_pool};
 
 use std::fmt;
 use std::str::FromStr;
+use std::process::Command;
 use mysql::serde_json::Value;
 use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
@@ -174,6 +175,21 @@ impl Device {
         });
         json
     }
+
+    /// Checks whether or not this device is online by pinging its IP address.
+    /// # Return
+    /// True if the ping was successful.
+    pub fn is_online(&self) -> bool {
+        let mut cmd = Command::new("ping");
+        cmd.arg(&self.ip)
+            .arg("-W")
+            .arg("1")
+            .arg("-c")
+            .arg("2")
+            .status()
+            .unwrap()
+            .success()
+    }
 }
 
 impl fmt::Display for Device {
@@ -284,6 +300,23 @@ impl ::std::default::Default for Device {
     }
 }
 
+impl Clone for Device {
+    fn clone(&self) -> Self {
+        Device {
+            ip: self.ip.clone(),
+            guid: self.guid.clone(),
+            kind: self.kind,
+            hardware: self.hardware,
+            last_state: self.last_state,
+            last_seen: self.last_seen.clone(),
+            sw_version: self.sw_version,
+            useruuid: self.useruuid.clone(),
+            name: self.name.clone(),
+            nicknames: self.nicknames.clone(),
+            extra_attr: self.extra_attr.clone(),
+        }
+    }
+}
 
 /// Gets the device from the database that corresponds to the given UUID.  If the device has the following pattern:
 /// xxxxxxxx-yyy-zzzzzzzzzzzz-n then we will get the device status from the SQLSprinkler host.
@@ -310,9 +343,7 @@ pub fn get_device_from_guid(guid: &String) -> Device {
             let ip = &dev.ip;
             dev.last_state = sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap();
         }
-        if dev.kind == device_type::Type::TV {
-            dev.extra_attr = serde_json::json!(tv::get_volume_state())
-        }
+        dev = tv::parse_device(dev.clone());
         return dev;
     }
     return _device;
@@ -332,9 +363,7 @@ pub fn get_devices() -> Vec<Device> {
         println!("Got a device.");
         let mut dev = Device::from(_row);
         sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
-        if dev.kind == device_type::Type::TV {
-            dev.extra_attr = serde_json::json!(tv::get_volume_state())
-        }
+        let dev = tv::parse_device(dev.clone());
         device_list.push(dev);
     }
     device_list

@@ -2,7 +2,7 @@ use std::str::FromStr;
 use serde::{Serialize, Deserialize};
 
 /// Represents all the differen types of devices we can have
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
 pub enum Type {
     LIGHT,
     SWITCH,

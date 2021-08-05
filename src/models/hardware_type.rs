@@ -2,7 +2,7 @@ use std::str::FromStr;
 use serde::{Serialize, Deserialize};
 
 /// Represents hardware types
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
 pub enum Type {
     ARDUINO,
     PI,
