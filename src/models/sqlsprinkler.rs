@@ -6,12 +6,6 @@ use crate::models::device_type;
 use std::error::Error;
 use regex::Regex;
 
-/// Represents the state of an SQLSprinkler host.
-#[derive(Deserialize)]
-pub struct SystemState {
-    pub system_enabled: bool,
-}
-
 /// A struct representing the data from SQLSprinkler zones.
 #[derive(Deserialize)]
 pub struct Zone {
@@ -25,12 +19,14 @@ pub struct Zone {
     pub id: i8,
 }
 
+/// Represents data for toggling a zone.
 #[derive(Serialize, Deserialize, Debug)]
 struct ZoneToggle {
     id: i64,
     state: bool,
 }
 
+/// Represents data for
 #[derive(Serialize, Deserialize, Debug)]
 struct SystemToggle {
     system_enabled: bool,
@@ -72,7 +68,7 @@ pub(crate) fn get_status_from_sqlsprinkler(ip: &String) -> Result<bool, Box<dyn 
     let response = isahc::get(url).unwrap().text().unwrap();
     println!("{}:?", response);
     println!("done");
-    let system_status: SystemState = serde_json::from_str(&response).unwrap();
+    let system_status: SystemToggle = serde_json::from_str(&response).unwrap();
     Ok(system_status.system_enabled)
 }
 
