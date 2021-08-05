@@ -1,6 +1,7 @@
 use std::str::FromStr;
 use serde::{Serialize, Deserialize};
 
+/// Represents hardware types
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Type {
     ARDUINO,
