@@ -8,22 +8,47 @@ use mysql::serde_json::Value;
 use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
 
+/// Data representing a device that can be automated/remotely controlled.
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Device {
+    /// The IP of the device (sometimes used)
     pub ip: String,
+
+    /// The GUID of the device
     pub guid: String,
+
+    /// What kind the device is
     pub kind: device_type::Type,
+
+    /// The hardware used on the device
     pub hardware: hardware_type::Type,
+
+    /// The last state of the device (can be changed)
     pub last_state: bool,
+
+    /// When the device in the database was last updated.
     pub last_seen: String,
+
+    /// The current software version on the device.
     pub sw_version: i64,
+
+    /// The user this device belongs to.
     pub useruuid: String,
+
+    /// The name of the device
     pub name: String,
+
+    /// A list of nicknames for the device
     pub nicknames: Vec<String>,
+
+    /// Any extra attributes in JSON
     pub extra_attr: serde_json::Value,
 }
 
 impl Device {
+    /// Gets the API Url of the device, with the endpoint.
+    /// # Return
+    /// A formatted string we can use to send requests to.
     fn get_api_url(&self, endpoint: String) -> String {
         let url = match self.hardware {
             hardware_type::Type::ARDUINO => format!("http://{}/{}", self.ip, endpoint),
@@ -32,6 +57,9 @@ impl Device {
         url
     }
 
+    /// Get the attributes of this device.
+    /// # Return
+    /// The attributes for this device.
     pub fn get_attributes(&self) -> Value {
         let data = match self.kind {
             device_type::Type::GARAGE => attributes::garage_attribute(),
@@ -41,6 +69,12 @@ impl Device {
         data
     }
 
+    /// Gets a URL to use for turning on/off relays on arduinos
+    /// # Params
+    ///     * endpoint : The UUID of the device we want to control.
+    ///     * param :   The state we want to set this device to.
+    /// # Return
+    /// A formatted URL we can send a request to.
     pub fn get_api_url_with_param(&self, endpoint: String, param: String) -> String {
         let url = match self.kind {
             device_type::Type::SqlSprinklerHost => format!("https://api.peasenet.com/sprinkler/systems/{}/state", self.guid),
@@ -61,6 +95,9 @@ impl Device {
         return res;
     }
 
+    /// Gets the device type for use in google home
+    /// # Return
+    /// A str representing the type of device that google home recognizes.
     pub fn get_google_device_type(&self) -> &str {
         match self.kind {
             device_type::Type::LIGHT => "action.devices.types.LIGHT",
@@ -72,6 +109,9 @@ impl Device {
         }
     }
 
+    /// Gets a list of traits for google home that pertains to this device
+    /// # Return
+    /// A list (vec) of traits that this device has.
     pub fn get_google_device_traits(&self) -> Vec<&str> {
         match self.kind {
             device_type::Type::GARAGE => traits::open_close_traits(),
@@ -81,6 +121,9 @@ impl Device {
         }
     }
 
+    /// Gets the hardware type for google home
+    /// # Return
+    /// The hardware in a nice string format.
     pub fn get_google_device_hardware(&self) -> &str {
         match self.hardware {
             hardware_type::Type::ARDUINO => "Arduino",
@@ -99,6 +142,8 @@ impl Device {
     }
 
     /// Converts this device into a json object that google smart home can understand.
+    /// # Return
+    /// A JSON representation of the device in the format that google home uses.
     pub fn to_google_device(&self) -> Value {
         let traits = self.get_google_device_traits();
         let device_type = self.get_google_device_type();
