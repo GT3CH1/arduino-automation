@@ -1,11 +1,12 @@
-use mysql::Row;
-use serde::{Serialize, Deserialize};
-use crate::{get_pool};
-
 use std::fmt;
-use std::str::FromStr;
 use std::process::Command;
+use std::str::FromStr;
+
+use mysql::Row;
 use mysql::serde_json::Value;
+use serde::{Deserialize, Serialize};
+
+use crate::get_pool;
 use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
 
@@ -358,6 +359,26 @@ pub fn get_devices() -> Vec<Device> {
     let mut conn = pool.get_conn().unwrap();
     let mut device_list: Vec<Device> = vec![];
     let rows = conn.query("SELECT * FROM devices").unwrap();
+    for row in rows {
+        let _row = row.unwrap();
+        println!("Got a device.");
+        let mut dev = Device::from(_row);
+        sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
+        let dev = tv::parse_device(dev.clone());
+        device_list.push(dev);
+    }
+    device_list
+}
+
+/// Gets all of the devices that are connected to this user in the database.
+/// # Return
+///     * A `Vec<Device>` containing all of the device information.
+pub fn get_devices_uuid(user_uuid: String) -> Vec<Device> {
+    let pool = get_pool();
+    let mut conn = pool.get_conn().unwrap();
+    let mut device_list: Vec<Device> = vec![];
+    let query = format!("SELECT * FROM devices WHERE useruuid='{}'", user_uuid);
+    let rows = conn.query(query).unwrap();
     for row in rows {
         let _row = row.unwrap();
         println!("Got a device.");

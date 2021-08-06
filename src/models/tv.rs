@@ -1,7 +1,9 @@
 use std::process::Command;
-use serde::{Serialize, Deserialize};
-use crate::models::device::Device;
+
+use serde::{Deserialize, Serialize};
 use wake_on_lan;
+
+use crate::models::device::Device;
 
 /// A struct representing the command output for getting the tv volume
 #[derive(Serialize, Deserialize, Debug)]
@@ -83,11 +85,13 @@ pub fn set_volume_state(state: SetVolState) -> bool {
 
 /// Sets the power of the TV to the requested value (true/on - false/off)
 pub fn set_power_state(state: bool) {
-    if state {
-        send_wol_packet();
-    } else {
-        send_shutdown_command();
-    }
+    let mut set_vol_command = Command::new("upstairs-tv");
+    set_vol_command.arg("set")
+        .arg("power")
+        .arg(state.to_string())
+        .status()
+        .unwrap()
+        .success();
 }
 
 /// Sets the volume state of the TV to the given VolState
@@ -120,18 +124,4 @@ pub fn get_volume_state() -> VolState {
     let volstate: VolState = serde_json::from_str(data.as_str()).unwrap();
     println!("{:?}", volstate);
     volstate
-}
-
-fn send_wol_packet() {
-    // 	e0:d5:5e:26:81:1b
-    let mac_addr: [u8; 6] = [0xe0, 0xd5, 0x5e, 0x26, 0x8a, 0x1b];
-    let packet = wake_on_lan::MagicPacket::new(&mac_addr);
-    packet.send_to("10.4.1.51", "0.0.0.0");
-}
-
-fn send_shutdown_command() {
-    let mut output = Command::new("upstairs-tv");
-    output.arg("set")
-        .arg("power")
-        .arg("false");
 }
