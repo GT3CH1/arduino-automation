@@ -6,6 +6,7 @@ use warp::{Filter, http};
 
 use crate::models;
 use crate::models::device;
+use crate::models::device::Device;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -36,6 +37,14 @@ pub(crate) async fn run() {
     let list_google_devices = warp::get()
         .and(warp::path("google"))
         .and_then(list_devices_google);
+
+    let list_devices_by_useruid = warp::get()
+        .and(warp::path("user"))
+        .and(warp::path::param())
+        .map(|_uid: String| {
+            let json = serde_json::to_string(&device::get_devices_uuid(_uid)).unwrap();
+            Ok(warp::reply::with_status(json, http::StatusCode::OK))
+        });
 
     let get_device_status = warp::get()
         .and(warp::path("device"))
@@ -81,6 +90,7 @@ pub(crate) async fn run() {
         .or(device_update)
         .or(device_update_arduino)
         .or(get_device_status)
+        .or(list_devices_by_useruid)
         .or(list_google_devices);
     warp::serve(routes)
         .run(([0, 0, 0, 0], 3030))
@@ -131,13 +141,13 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
             if json["volumeLevel"] != serde_json::json!(null) {
                 let vol_state: models::tv::SetVolState = serde_json::from_value(json["volumeLevel"].clone()).unwrap();
                 models::tv::set_volume_state(vol_state);
-            }
-            else if json["mute"] != serde_json::json!(null) {
+            } else if json["mute"] != serde_json::json!(null) {
                 let mute_state: models::tv::SetMuteState = serde_json::from_value(json["mute"].clone()).unwrap();
                 models::tv::set_mute_state(mute_state);
+            } else {
+                let _state: bool = serde_json::from_value(json).unwrap();
+                models::tv::set_power_state(_state);
             }
-            let _state: bool = serde_json::from_value(json).unwrap();
-            models::tv::set_power_state(_state);
             // let volstate: models::tv::SetVolState = serde_json::from_value(json).unwrap();
             // let status = models::tv::set_volume_state(volstate);
             Ok(warp::reply::with_status("set volume state".to_string(), http::StatusCode::OK))
