@@ -19,3 +19,4 @@ regex = "1"
 futures = "*"
 wake-on-lan = "0.2.0"
 firebase = { path = "../rust-firebase" }
+env_logger = "0.9.0"
