@@ -18,3 +18,4 @@ isahc = "1.4.0"
 regex = "1"
 futures = "*"
 wake-on-lan = "0.2.0"
+firebase = { path = "../rust-firebase" }

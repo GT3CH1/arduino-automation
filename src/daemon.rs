@@ -2,11 +2,12 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use warp::{Filter, http};
+use warp::{Filter, http, Rejection};
 
 use crate::models;
 use crate::models::device;
 use crate::models::device::Device;
+use firebase::Firebase;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -15,11 +16,23 @@ struct DeviceState {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct QueryAuth {
+    key: String,
+    email: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceUpdate {
     guid: String,
     ip: String,
     state: bool,
     sw_version: i64,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct FirebaseToken {
+    uid: String,
+    token: String,
 }
 
 #[tokio::main]
@@ -32,8 +45,10 @@ pub(crate) async fn run() {
         .and_then(send_request);
     let list_devices = warp::get()
         .and(warp::path("device"))
+        .and(auth_request())
         .and(warp::path::end())
         .and_then(list_devices);
+
     let list_google_devices = warp::get()
         .and(warp::path("google"))
         .and_then(list_devices_google);
@@ -53,11 +68,13 @@ pub(crate) async fn run() {
             let device = device::get_device_from_guid(&_guid);
             format!("{}", device)
         });
+
     let device_update = warp::put()
         .and(warp::path("device"))
         .and(warp::path::end())
         .and(sys_put())
         .and_then(do_device_update);
+
     let device_update_arduino = warp::put()
         .and(warp::path("update"))
         .and(warp::path::end())
@@ -95,6 +112,11 @@ pub(crate) async fn run() {
     warp::serve(routes)
         .run(([0, 0, 0, 0], 3030))
         .await;
+}
+
+fn auth_request() -> impl Filter<Extract=(String, String, ), Error=Rejection> + Copy {
+    warp::header::<String>("x-api-key").and(
+        warp::header::<String>("x-auth-id"))
 }
 
 /// Used to filter a put request to change the system status
@@ -166,9 +188,14 @@ async fn send_request(state: DeviceState) -> Result<impl warp::Reply, warp::Reje
 }
 
 /// List all devices.
-async fn list_devices() -> Result<impl warp::Reply, warp::Rejection> {
-    let devices = serde_json::to_string(&device::get_devices()).unwrap();
-    Ok(warp::reply::with_status(devices, http::StatusCode::OK))
+async fn list_devices(api_token: String, uid: String) -> Result<impl warp::Reply, warp::Rejection> {
+    let authed = check_auth(api_token, uid);
+    if !authed {
+        Err(warp::reject())
+    } else {
+        let devices = serde_json::to_string(&device::get_devices()).unwrap();
+        Ok(warp::reply::with_status(devices, http::StatusCode::OK))
+    }
 }
 
 // fn list_devices_google(token: String) -> String {
@@ -199,4 +226,22 @@ fn database_update(_device: DeviceUpdate) -> String {
         false => "an error occurred.".to_string()
     };
     status
+}
+
+/// Gets a firebase instance.
+fn get_firebase() -> Firebase {
+    Firebase::authed("https://pimation-ee62a-default-rtdb.firebaseio.com", crate::consts::FIREBASE_TOKEN).unwrap()
+}
+
+/// Checks whether or not that the user id has the correct api token.
+fn check_auth(api_token: String, uid: String) -> bool {
+    let query = get_firebase()
+        .at(&uid)
+        .unwrap();
+    let token: String = match serde_json::from_str(query.get().unwrap().body.as_str()) {
+        Ok(t) => t,
+        Err(..) => String::from(""),
+    };
+    let token_equal = token == api_token;
+    token_equal
 }

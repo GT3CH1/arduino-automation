@@ -1,8 +1,11 @@
 use mysql::Pool;
 use std::env;
 
+extern crate firebase;
+
 mod daemon;
 mod models;
+mod consts;
 
 fn main() {
     println!("Hello, world!");
