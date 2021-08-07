@@ -1,0 +1,1 @@
+pub static FIREBASE_TOKEN: String = String::from("");
