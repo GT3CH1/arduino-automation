@@ -37,9 +37,12 @@ struct FirebaseToken {
 
 #[tokio::main]
 pub(crate) async fn run() {
-    // let cors = warp::cors::cors().allow_any_origin()
-    //     .allow_headers(vec!["x-auth-id", "x-api-key","User-Agent","Sec-Fetch-Mode","Referer","Origin", "Access-Control-Request-Method","Access-Control-Request-Headers"])
-    //     .allow_methods(vec!["GET", "POST"]);
+    env_logger::init();
+    let cors = warp::cors::cors().allow_any_origin()
+        .allow_headers(vec!["x-auth-id", "x-api-key", "User-Agent", "Sec-Fetch-Mode", "Referer", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Content-Type"])
+        .allow_methods(vec!["GET", "POST", "PUT"]);
+
+    let route = warp::any().map(warp::reply).with(&cors);
     // This has to be POST for nodejs to work nicely
     let set_sys_status = warp::post()
         .and(warp::path("device"))
@@ -110,7 +113,8 @@ pub(crate) async fn run() {
         .or(device_update)
         .or(device_update_arduino)
         .or(get_device_status)
-        .or(list_google_devices);
+        .or(list_google_devices)
+        .or(route);
     warp::serve(routes)
         .run(([0, 0, 0, 0], 3030))
         .await;
