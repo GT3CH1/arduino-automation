@@ -85,13 +85,13 @@ pub fn set_volume_state(state: SetVolState) -> bool {
 
 /// Sets the power of the TV to the requested value (true/on - false/off)
 pub fn set_power_state(state: bool) {
-    let mut set_vol_command = Command::new("upstairs-tv");
-    set_vol_command.arg("set")
+    let set_vol_command = Command::new("upstairs-tv")
+        .arg("set")
         .arg("power")
         .arg(state.to_string())
         .status()
         .unwrap()
-        .success();
+        .success()
 }
 
 /// Sets the volume state of the TV to the given VolState
@@ -100,16 +100,11 @@ pub fn set_power_state(state: bool) {
 /// # Return
 /// The success of the command
 pub fn set_mute_state(state: SetMuteState) -> bool {
-    let mut set_mute_state = Command::new("upstairs-tv");
-    let mute_output = set_mute_state.arg("set")
+    let set_mute_state = Command::new("upstairs-tv")
+        .arg("set")
         .arg("mute")
-        .arg(state.0.to_string())
-        .output().unwrap()
-        .stdout;
-    let mute_return_str = String::from_utf8(mute_output).unwrap();
-    println!("{}", mute_return_str);
-    let mute_return: ReturnVal = serde_json::from_str(mute_return_str.as_str()).unwrap();
-    mute_return.returnValue
+        .arg(state.0.to_string());
+    set_mute_state.status().unwrap().success()
 }
 
 /// Gets the volume states from the TV.
@@ -119,9 +114,12 @@ pub fn get_volume_state() -> VolState {
     let mut output = Command::new("upstairs-tv");
     output.arg("get")
         .arg("vol");
-    let data = String::from_utf8(output.output().unwrap().stdout).unwrap();
 
-    let volstate: VolState = serde_json::from_str(data.as_str()).unwrap();
-    println!("{:?}", volstate);
+    let is_success = output.status().unwrap().success();
+    let mut volstate = VolState::default();
+    if is_success {
+        let data = String::from_utf8(output.output().unwrap().stdout).unwrap();
+        &volstate: VolState = serde_json::from_str(data.as_str()).unwrap();
+    }
     volstate
 }

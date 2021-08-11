@@ -182,11 +182,14 @@ impl Device {
     /// True if the ping was successful.
     pub fn is_online(&self) -> bool {
         let mut cmd = Command::new("ping");
-        cmd.arg(&self.ip)
+        cmd
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .arg(&self.ip)
             .arg("-W")
             .arg("1")
             .arg("-c")
-            .arg("2")
+            .arg("1")
             .status()
             .unwrap()
             .success()
