@@ -32,7 +32,7 @@ pub struct Device {
     pub last_seen: String,
 
     /// The current software version on the device.
-    pub sw_version: i64,
+    pub sw_version: String,
 
     /// The user this device belongs to.
     pub useruuid: String,
@@ -160,9 +160,7 @@ impl Device {
                 "defaultNames": [
                     self.get_name()
                 ],
-                "name": [
-                    self.get_name()
-                ],
+                "name":self.get_name(),
                 "nicknames": self.nicknames
             },
             "attributes": attributes,
@@ -230,9 +228,9 @@ impl From<Row> for Device {
             None => "0".to_string()
         };
 
-        let sw_version = match _sw_version.parse::<i64>() {
+        let sw_version = match _sw_version.parse::<String>() {
             Ok(res) => res,
-            Err(..) => 0
+            Err(..) => "0".to_string()
         };
 
         let useruuid: String = match row.get(7) {
@@ -276,7 +274,7 @@ impl From<sqlsprinkler::Zone> for Device {
             hardware: hardware_type::Type::PI,
             last_state: zone.state,
             last_seen: "".to_string(),
-            sw_version: zone.id as i64,
+            sw_version: zone.id.to_string(),
             useruuid: "".to_string(),
             name: zone.name,
             nicknames,
@@ -295,7 +293,7 @@ impl ::std::default::Default for Device {
             hardware: hardware_type::Type::OTHER,
             last_state: false,
             last_seen: "".to_string(),
-            sw_version: 0,
+            sw_version: "0".to_string(),
             useruuid: "".to_string(),
             name: "".to_string(),
             nicknames: vec!["".to_string()],
@@ -313,7 +311,7 @@ impl Clone for Device {
             hardware: self.hardware,
             last_state: self.last_state,
             last_seen: self.last_seen.clone(),
-            sw_version: self.sw_version,
+            sw_version: self.sw_version.clone(),
             useruuid: self.useruuid.clone(),
             name: self.name.clone(),
             nicknames: self.nicknames.clone(),

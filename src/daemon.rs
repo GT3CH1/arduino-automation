@@ -7,7 +7,6 @@ use warp::{Filter, http, Rejection};
 
 use crate::models;
 use crate::models::device;
-use crate::models::device::Device;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -152,7 +151,11 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
         if models::sqlsprinkler::check_if_zone(&state.guid) {
             // Match the device to a sprinkler zone
             let _state: bool = serde_json::from_value(json).unwrap();
-            let status = models::sqlsprinkler::set_zone(device.ip, _state, device.sw_version - 1);
+            let id = match device.sw_version.parse::<i64>() {
+                Ok(r) => r - 1,
+                Err(..) => 0
+            };
+            let status = models::sqlsprinkler::set_zone(device.ip, _state, id);
             let response = match status {
                 true => "ok",
                 false => "fail",
@@ -254,7 +257,7 @@ fn check_auth(api_token: String, uid: String) -> bool {
     let query = get_firebase()
         .at(&uid)
         .unwrap();
-    let token: String = match serde_json::from_str(query.get().unwrap().body.as_str()) {
+    let token: String = match serde_json::from_str(query.get().unwrap().body.as_str().unwrap()) {
         Ok(t) => t,
         Err(..) => String::from(""),
     };
