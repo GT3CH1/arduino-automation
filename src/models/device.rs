@@ -358,17 +358,8 @@ pub fn get_device_from_guid(guid: &String) -> Device {
 pub fn get_devices() -> Vec<Device> {
     let pool = get_pool();
     let mut conn = pool.get_conn().unwrap();
-    let mut device_list: Vec<Device> = vec![];
     let rows = conn.query("SELECT * FROM devices").unwrap();
-    for row in rows {
-        let _row = row.unwrap();
-        println!("Got a device.");
-        let mut dev = Device::from(_row);
-        sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
-        let dev = tv::parse_device(dev.clone());
-        device_list.push(dev);
-    }
-    device_list
+    device_list_from_row(rows)
 }
 
 /// Gets all of the devices that are connected to this user in the database.
@@ -377,12 +368,16 @@ pub fn get_devices() -> Vec<Device> {
 pub fn get_devices_uuid(user_uuid: String) -> Vec<Device> {
     let pool = get_pool();
     let mut conn = pool.get_conn().unwrap();
-    let mut device_list: Vec<Device> = vec![];
     let query = format!("SELECT * FROM devices WHERE useruuid='{}'", user_uuid);
     let rows = conn.query(query).unwrap();
+    device_list_from_row(rows)
+}
+
+/// Gets all the devices from the list of SQL Rows.
+fn device_list_from_row(rows: mysql::QueryResult) -> Vec<Device>{
+    let mut device_list = vec![];
     for row in rows {
         let _row = row.unwrap();
-        println!("Got a device.");
         let mut dev = Device::from(_row);
         sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
         let dev = tv::parse_device(dev.clone());
