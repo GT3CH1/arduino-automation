@@ -1,7 +1,6 @@
 use std::process::Command;
 
 use serde::{Deserialize, Serialize};
-use wake_on_lan;
 
 use crate::models::device::Device;
 
@@ -84,8 +83,8 @@ pub fn set_volume_state(state: SetVolState) -> bool {
 }
 
 /// Sets the power of the TV to the requested value (true/on - false/off)
-pub fn set_power_state(state: bool) {
-    let set_vol_command = Command::new("upstairs-tv")
+pub fn set_power_state(state: bool) -> bool {
+    Command::new("upstairs-tv")
         .arg("set")
         .arg("power")
         .arg(state.to_string())
@@ -100,11 +99,13 @@ pub fn set_power_state(state: bool) {
 /// # Return
 /// The success of the command
 pub fn set_mute_state(state: SetMuteState) -> bool {
-    let set_mute_state = Command::new("upstairs-tv")
+    Command::new("upstairs-tv")
         .arg("set")
         .arg("mute")
-        .arg(state.0.to_string());
-    set_mute_state.status().unwrap().success()
+        .arg(state.0.to_string())
+        .status()
+        .unwrap()
+        .success()
 }
 
 /// Gets the volume states from the TV.
@@ -116,10 +117,9 @@ pub fn get_volume_state() -> VolState {
         .arg("vol");
 
     let is_success = output.status().unwrap().success();
-    let mut volstate = VolState::default();
     if is_success {
         let data = String::from_utf8(output.output().unwrap().stdout).unwrap();
-        &volstate: VolState = serde_json::from_str(data.as_str()).unwrap();
+        return serde_json::from_str(data.as_str()).unwrap();
     }
-    volstate
+    VolState::default()
 }
