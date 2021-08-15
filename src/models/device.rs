@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use mysql::Row;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use crate::get_pool;
 use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
@@ -48,23 +48,21 @@ impl Device {
     /// # Return
     /// A formatted string we can use to send requests to.
     fn get_api_url(&self, endpoint: String) -> String {
-        let url = match self.hardware {
+        match self.hardware {
             hardware_type::Type::ARDUINO => format!("http://{}/{}", self.ip, endpoint),
             _ => "".to_string(),
-        };
-        url
+        }
     }
 
     /// Get the attributes of this device.
     /// # Return
     /// The attributes for this device.
     pub fn get_attributes(&self) -> Value {
-        let data = match self.kind {
+        match self.kind {
             device_type::Type::GARAGE => attributes::garage_attribute(),
             device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::ROUTER | device_type::Type::SqlSprinklerHost => attributes::on_off_attribute(),
             device_type::Type::TV => attributes::tv_attribute(),
-        };
-        data
+        }
     }
 
     /// Gets a URL to use for turning on/off relays on arduinos
@@ -74,23 +72,20 @@ impl Device {
     /// # Return
     /// A formatted URL we can send a request to.
     pub fn get_api_url_with_param(&self, endpoint: String, param: String) -> String {
-        let url = match self.kind {
+        match self.kind {
             device_type::Type::SqlSprinklerHost => format!("https://api.peasenet.com/sprinkler/systems/{}/state", self.guid),
             _ => format!("{}?param={}", self.get_api_url(endpoint), param)
-        };
-        url
+        }
     }
 
     pub fn database_update(&self, state: Value, ip: String, sw_version: String) -> bool {
         let pool = get_pool();
         let query = format!("UPDATE `devices` SET last_state='{}', ip='{}', swVersion='{}' WHERE guid='{}'",
-                            state.as_str().unwrap(), ip, sw_version, self.guid);
-        println!("{}",query);
-        let res = match pool.prep_exec(query, ()) {
+                            state, ip, sw_version, self.guid);
+        match pool.prep_exec(query, ()) {
             Ok(res) => res.affected_rows() > 0,
             Err(..) => false
-        };
-        return res;
+        }
     }
 
     /// Gets the device type for use in google home
