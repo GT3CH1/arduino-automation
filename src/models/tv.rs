@@ -28,7 +28,7 @@ impl ::std::default::Default for TvState {
             on: false,
             muted: false,
             volume: 0,
-            volumeMax: 0
+            volumeMax: 0,
         }
     }
 }
@@ -48,6 +48,7 @@ pub fn parse_device(mut dev: Device) -> Device {
         } else {
             dev.last_state = serde_json::json!(TvState::default())
         }
+        dev.database_update(dev.last_state.clone(), dev.ip.clone(), dev.sw_version.clone());
         return dev;
     }
     dev
@@ -84,7 +85,6 @@ pub fn set_volume_state(state: SetVolState) -> bool {
         .output().unwrap()
         .stdout;
     let vol_return_str = String::from_utf8(vol_output).unwrap();
-    println!("{}", vol_return_str);
     let vol_return: ReturnVal = serde_json::from_str(vol_return_str.as_str()).unwrap();
     vol_return.returnValue
 }
@@ -131,8 +131,8 @@ pub fn get_tv_state() -> TvState {
             on: true,
             muted: vol_state.muted,
             volume: vol_state.volume,
-            volumeMax: vol_state.volumeMax
-        }
+            volumeMax: vol_state.volumeMax,
+        };
     }
     TvState::default()
 }

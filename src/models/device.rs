@@ -41,9 +41,6 @@ pub struct Device {
 
     /// A list of nicknames for the device
     pub nicknames: Vec<String>,
-
-    /// Any extra attributes in JSON
-    pub extra_attr: serde_json::Value,
 }
 
 impl Device {
@@ -84,11 +81,11 @@ impl Device {
         url
     }
 
-    pub fn database_update(&self, state: bool, ip: String, sw_version: i64) -> bool {
+    pub fn database_update(&self, state: Value, ip: String, sw_version: String) -> bool {
         let pool = get_pool();
-        let query = format!("UPDATE `devices` SET last_state={}, ip='{}', swVersion='{}', last_seen=CURRENT_TIMESTAMP WHERE guid='{}'",
-                            state, ip, sw_version, self.guid);
-        println!("{}", query);
+        let query = format!("UPDATE `devices` SET last_state='{}', ip='{}', swVersion='{}' WHERE guid='{}'",
+                            state.as_str().unwrap(), ip, sw_version, self.guid);
+        println!("{}",query);
         let res = match pool.prep_exec(query, ()) {
             Ok(res) => res.affected_rows() > 0,
             Err(..) => false
@@ -242,7 +239,6 @@ impl From<Row> for Device {
             None => "none".into()
         };
         let nicknames = vec![format!("{}", name)];
-        let extra_attr: Value = serde_json::json!(null);
         let device = Device {
             ip,
             guid,
@@ -254,7 +250,6 @@ impl From<Row> for Device {
             useruuid,
             name,
             nicknames,
-            extra_attr,
         };
         device
     }
@@ -265,7 +260,6 @@ impl From<sqlsprinkler::Zone> for Device {
         let zone_name = format!("Zone {}", &zone.system_order + 1);
         let pretty_name = format!("{}", &zone.name);
         let nicknames = vec![pretty_name, zone_name];
-        let extra_attr: Value = serde_json::json!(null);
         Device {
             ip: "".to_string(),
             guid: zone.id.to_string(),
@@ -277,14 +271,12 @@ impl From<sqlsprinkler::Zone> for Device {
             useruuid: "".to_string(),
             name: zone.name,
             nicknames,
-            extra_attr,
         }
     }
 }
 
 impl ::std::default::Default for Device {
     fn default() -> Device {
-        let extra_attr: Value = serde_json::json!(null);
         Device {
             ip: "".to_string(),
             guid: "".to_string(),
@@ -296,7 +288,6 @@ impl ::std::default::Default for Device {
             useruuid: "".to_string(),
             name: "".to_string(),
             nicknames: vec!["".to_string()],
-            extra_attr,
         }
     }
 }
@@ -314,7 +305,6 @@ impl Clone for Device {
             useruuid: self.useruuid.clone(),
             name: self.name.clone(),
             nicknames: self.nicknames.clone(),
-            extra_attr: self.extra_attr.clone(),
         }
     }
 }
@@ -334,7 +324,6 @@ pub fn get_device_from_guid(guid: &String) -> Device {
     let pool = get_pool();
     let mut conn = pool.get_conn().unwrap();
     let query = format!("SELECT * FROM devices WHERE guid = '{}'", guid);
-    println!("{}", query);
     let rows = conn.query(query).unwrap();
     let mut _device = Device::default();
     for row in rows {

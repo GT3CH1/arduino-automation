@@ -25,7 +25,7 @@ struct DeviceUpdate {
     guid: String,
     ip: String,
     state: Value,
-    sw_version: i64,
+    sw_version: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -86,18 +86,16 @@ pub(crate) async fn run() {
         .and(warp::body::form())
         .map(|_map: HashMap<String, String>| {
             let mut status = "".to_string();
-            println!("{:?}", _map);
             if _map.contains_key("guid") && _map.contains_key("ip") && _map.contains_key("state") && _map.contains_key("sw_version") {
                 let guid = _map.get("guid").unwrap().to_string();
                 let ip = _map.get("ip").unwrap().to_string();
                 let _state: String = _map.get("state").unwrap().to_string();
-                let _sw_version: String = _map.get("sw_version").unwrap().to_string();
-                let state = _state.parse::<bool>().unwrap();
-                let sw_version = _sw_version.parse::<i64>().unwrap();
+                let sw_version: String = _map.get("sw_version").unwrap().to_string();
+                let state = Value::from(_state);
                 let device_update = DeviceUpdate {
                     guid,
                     ip,
-                    state: Value::from(state),
+                    state,
                     sw_version,
                 };
                 status = database_update(device_update);
@@ -117,7 +115,6 @@ pub(crate) async fn run() {
 }
 
 fn auth_request() -> impl Filter<Extract=(String, String, ), Error=Rejection> + Copy {
-    println!("authing request...");
     warp::header::<String>("x-api-key").and(
         warp::header::<String>("x-auth-id"))
 }
@@ -144,7 +141,7 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
         let device = device::get_device_from_guid(&state.guid);
 
         // Parse the state
-        let json: serde_json::Value = serde_json::from_value(state.state).unwrap();
+        let json = state.state;
         if models::sqlsprinkler::check_if_zone(&state.guid) {
             // Match the device to a sprinkler zone
             let _state: bool = serde_json::from_value(json).unwrap();
@@ -185,7 +182,7 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
                 Ok(warp::reply::with_status("set volume state".to_string(), http::StatusCode::OK))
             } else {
                 // Everything else is an arduino.
-                let _state: bool = serde_json::from_value(json).unwrap();
+                let _state: bool = serde_json::from_value(json.clone()).unwrap();
                 let endpoint = match _state {
                     true => "on",
                     false => "off",
@@ -250,7 +247,6 @@ fn get_firebase() -> Firebase {
 
 /// Checks whether or not that the user id has the correct api token.
 fn check_auth(api_token: String, uid: String) -> bool {
-    println!("got check_auth call");
     let query = get_firebase()
         .at(&uid)
         .unwrap()
@@ -259,6 +255,5 @@ fn check_auth(api_token: String, uid: String) -> bool {
     let token = query.get().unwrap().body;
     let token_str = token.as_str().unwrap();
     let token_equal = token_str == api_token.as_str();
-    println!("token equal {}", token_equal);
     token_equal
 }
