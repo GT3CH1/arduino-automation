@@ -6,7 +6,7 @@ use crate::models::device::Device;
 
 /// A struct representing the command output for getting the tv volume
 #[derive(Serialize, Deserialize, Debug)]
-pub struct VolState {
+struct VolState {
     pub muted: bool,
     pub returnValue: bool,
     pub scenario: String,
@@ -14,14 +14,21 @@ pub struct VolState {
     pub volumeMax: u8,
 }
 
-impl ::std::default::Default for VolState {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TvState {
+    pub on: bool,
+    pub muted: bool,
+    pub volume: u8,
+    pub volumeMax: u8,
+}
+
+impl ::std::default::Default for TvState {
     fn default() -> Self {
-        VolState {
+        TvState {
+            on: false,
             muted: false,
-            returnValue: false,
-            scenario: "tv_master_volume".to_string(),
             volume: 0,
-            volumeMax: 100,
+            volumeMax: 0
         }
     }
 }
@@ -34,12 +41,12 @@ impl ::std::default::Default for VolState {
 /// True if the device is a TV, false otherwise.
 pub fn parse_device(mut dev: Device) -> Device {
     if dev.kind == crate::models::device_type::Type::TV {
-        dev.last_state = dev.is_online();
+        let is_online = dev.is_online();
         // !!! ONLY QUERY TV WHEN IT IS ON !!!
-        if dev.last_state {
-            dev.extra_attr = serde_json::json!(get_volume_state());
+        if is_online {
+            dev.last_state = serde_json::json!(get_tv_state());
         } else {
-            dev.extra_attr = serde_json::json!(VolState::default())
+            dev.last_state = serde_json::json!(TvState::default())
         }
         return dev;
     }
@@ -111,7 +118,7 @@ pub fn set_mute_state(state: SetMuteState) -> bool {
 /// Gets the volume states from the TV.
 /// # Return
 /// A VolState struct containing all of the information for the volume of the TV.
-pub fn get_volume_state() -> VolState {
+pub fn get_tv_state() -> TvState {
     let mut output = Command::new("upstairs-tv");
     output.arg("get")
         .arg("vol");
@@ -119,7 +126,13 @@ pub fn get_volume_state() -> VolState {
     let is_success = output.status().unwrap().success();
     if is_success {
         let data = String::from_utf8(output.output().unwrap().stdout).unwrap();
-        return serde_json::from_str(data.as_str()).unwrap();
+        let vol_state: VolState = serde_json::from_str(data.as_str()).unwrap();
+        return TvState {
+            on: true,
+            muted: vol_state.muted,
+            volume: vol_state.volume,
+            volumeMax: vol_state.volumeMax
+        }
     }
-    VolState::default()
+    TvState::default()
 }

@@ -3,9 +3,8 @@ use std::process::Command;
 use std::str::FromStr;
 
 use mysql::Row;
-use mysql::serde_json::Value;
 use serde::{Deserialize, Serialize};
-
+use serde_json::{json, Value};
 use crate::get_pool;
 use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
@@ -26,7 +25,7 @@ pub struct Device {
     pub hardware: hardware_type::Type,
 
     /// The last state of the device (can be changed)
-    pub last_state: bool,
+    pub last_state: Value,
 
     /// When the device in the database was last updated.
     pub last_seen: String,
@@ -216,11 +215,11 @@ impl From<Row> for Device {
 
         let state: String = row.get(4).unwrap();
 
-        let last_state = state == "1";
+        let last_state = serde_json::from_str(&state).unwrap();
 
         let last_seen: String = match row.get(5) {
             Some(res) => res,
-            None => "".to_string()
+            None => "".to_string(),
         };
 
         let _sw_version: String = match row.get(6) {
@@ -272,7 +271,7 @@ impl From<sqlsprinkler::Zone> for Device {
             guid: zone.id.to_string(),
             kind: device_type::Type::SPRINKLER,
             hardware: hardware_type::Type::PI,
-            last_state: zone.state,
+            last_state: Value::from(zone.state),
             last_seen: "".to_string(),
             sw_version: zone.id.to_string(),
             useruuid: "".to_string(),
@@ -291,7 +290,7 @@ impl ::std::default::Default for Device {
             guid: "".to_string(),
             kind: device_type::Type::SWITCH,
             hardware: hardware_type::Type::OTHER,
-            last_state: false,
+            last_state: Value::from(false),
             last_seen: "".to_string(),
             sw_version: "0".to_string(),
             useruuid: "".to_string(),
@@ -309,7 +308,7 @@ impl Clone for Device {
             guid: self.guid.clone(),
             kind: self.kind,
             hardware: self.hardware,
-            last_state: self.last_state,
+            last_state: self.last_state.clone(),
             last_seen: self.last_seen.clone(),
             sw_version: self.sw_version.clone(),
             useruuid: self.useruuid.clone(),
@@ -343,7 +342,7 @@ pub fn get_device_from_guid(guid: &String) -> Device {
         let mut dev: Device = Device::from(_row);
         if dev.kind == device_type::Type::SqlSprinklerHost {
             let ip = &dev.ip;
-            dev.last_state = sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap();
+            dev.last_state = Value::from(sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap());
         }
         dev = tv::parse_device(dev.clone());
         return dev;
@@ -374,7 +373,7 @@ pub fn get_devices_uuid(user_uuid: String) -> Vec<Device> {
 }
 
 /// Gets all the devices from the list of SQL Rows.
-fn device_list_from_row(rows: mysql::QueryResult) -> Vec<Device>{
+fn device_list_from_row(rows: mysql::QueryResult) -> Vec<Device> {
     let mut device_list = vec![];
     for row in rows {
         let _row = row.unwrap();

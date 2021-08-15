@@ -24,7 +24,7 @@ struct QueryAuth {
 struct DeviceUpdate {
     guid: String,
     ip: String,
-    state: bool,
+    state: Value,
     sw_version: i64,
 }
 
@@ -92,15 +92,12 @@ pub(crate) async fn run() {
                 let ip = _map.get("ip").unwrap().to_string();
                 let _state: String = _map.get("state").unwrap().to_string();
                 let _sw_version: String = _map.get("sw_version").unwrap().to_string();
-                let state = match _state.parse::<bool>() {
-                    Ok(val) => val,
-                    Err(_val) => _state == "1"
-                };
+                let state = _state.parse::<bool>().unwrap();
                 let sw_version = _sw_version.parse::<i64>().unwrap();
                 let device_update = DeviceUpdate {
                     guid,
                     ip,
-                    state,
+                    state: Value::from(state),
                     sw_version,
                 };
                 status = database_update(device_update);
@@ -256,12 +253,12 @@ fn check_auth(api_token: String, uid: String) -> bool {
     println!("got check_auth call");
     let query = get_firebase()
         .at(&uid)
+        .unwrap()
+        .at("api_key")
         .unwrap();
-    let token: String = match serde_json::from_str(query.get().unwrap().body.as_str().unwrap()) {
-        Ok(t) => t,
-        Err(..) => String::from(""),
-    };
-    let token_equal = token == api_token;
+    let token = query.get().unwrap().body;
+    let token_str = token.as_str().unwrap();
+    let token_equal = token_str == api_token.as_str();
     println!("token equal {}", token_equal);
     token_equal
 }

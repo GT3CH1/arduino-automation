@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use isahc::prelude::*;
 use isahc::Request;
+use serde_json::Value;
 use crate::models::device::{Device, get_devices};
 use crate::models::device_type;
 use std::error::Error;
@@ -98,7 +99,7 @@ fn get_zones_from_sqlsprinkler(ip: &String) -> Result<Vec<Zone>, Box<dyn Error>>
 pub fn check_if_device_is_sqlsprinkler_host(dev: &mut Device, device_list: &mut Vec<Device>) -> bool {
     if dev.kind == device_type::Type::SqlSprinklerHost {
         let ip = &dev.ip;
-        dev.last_state = get_status_from_sqlsprinkler(ip).unwrap();
+        dev.last_state = Value::from(get_status_from_sqlsprinkler(ip).unwrap());
         let sprinkler_list = get_zones_from_sqlsprinkler(ip).unwrap();
         for zone in sprinkler_list {
             // Create a device from a sprinkler zone
