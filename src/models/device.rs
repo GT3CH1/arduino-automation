@@ -1,6 +1,5 @@
 use std::fmt;
 use std::process::Command;
-use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use isahc::http::StatusCode;
@@ -90,7 +89,7 @@ impl Device {
             .code == StatusCode::OK
     }
 
-    /// Gets the device type for use in google home
+    /// Gets the device type for use in google home:
     /// # Return
     /// A str representing the type of device that google home recognizes.
     pub fn get_google_device_type(&self) -> &str {
@@ -259,7 +258,6 @@ impl Clone for Device {
 /// # Return
 ///     *   A device that corresponds to the given uuid, if there is no match, return a default device.
 pub fn get_device_from_guid(guid: &String) -> Device {
-
     if check_if_zone(guid) {
         return sqlsprinkler::get_zone(guid);
     }
@@ -270,10 +268,12 @@ pub fn get_device_from_guid(guid: &String) -> Device {
         .get()
         .unwrap()
         .body;
-
     let mut dev = match serde_json::from_value(device_value) {
         Ok(d) => d,
-        Err(..) => Device::default()
+        Err(e) => {
+            println!("Err: {}", e);
+            Device::default()
+        }
     };
 
     if dev.kind == device_type::Type::SqlSprinklerHost {
@@ -283,7 +283,7 @@ pub fn get_device_from_guid(guid: &String) -> Device {
     } else if dev.kind == device_type::Type::TV {
         dev = tv::parse_device(dev.clone());
     }
-    return dev;
+    dev
 }
 
 /// Gets all of the devices that are connected to this user in the database.
@@ -298,14 +298,19 @@ pub fn get_devices_uuid(user_uuid: &String) -> Vec<Device> {
         .get()
         .unwrap()
         .body;
-
     let device_list = device_list_from_firebase(firebase_device_list);
     device_list
 }
 
 /// Gets all the devices from
 fn device_list_from_firebase(body: Value) -> Vec<Device> {
-    let mut device_list: Vec<Device> = serde_json::from_value(body).unwrap();
+    let device_guid_list: Vec<String> = serde_json::from_value(body).unwrap();
+    let mut device_list = vec![];
+
+    for guid in device_guid_list {
+        device_list.push(get_device_from_guid(&guid));
+    }
+
     let mut final_list = vec![];
 
     // We need to iterate over all the devices to make sure we pick up devices
@@ -322,6 +327,9 @@ fn device_list_from_firebase(body: Value) -> Vec<Device> {
             for sprinkler in sprinkler_list {
                 final_list.push(sprinkler);
             }
+            continue;
+        } else {
+            final_list.push(dev.clone());
         }
     }
     final_list

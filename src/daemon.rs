@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use firebase::Firebase;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use warp::{Filter, http, Rejection};
@@ -89,9 +88,8 @@ pub(crate) async fn run() {
             if _map.contains_key("guid") && _map.contains_key("ip") && _map.contains_key("state") && _map.contains_key("sw_version") {
                 let guid = _map.get("guid").unwrap().to_string();
                 let ip = _map.get("ip").unwrap().to_string();
-                let _state: String = _map.get("state").unwrap().to_string();
+                let state: Value = serde_json::from_str(_map.get("state").unwrap().as_str()).unwrap();
                 let sw_version: String = _map.get("sw_version").unwrap().to_string();
-                let state = Value::from(_state);
                 let device_update = DeviceUpdate {
                     guid,
                     ip,
@@ -214,10 +212,11 @@ async fn list_devices_google(api_token: String, uid: String) -> Result<impl warp
         // let devices = device::get_devices_useruuid(token);
         let devices = device::get_devices_uuid(&uid);
         let mut json_arr = vec![];
+
         for device in devices.iter() {
             json_arr.push(device.to_google_device());
         }
-        println!("Done getting google devices.");
+
         let json_output = serde_json::json!(json_arr);
         let output = format!("{}", json_output);
         Ok(warp::reply::with_status(output, http::StatusCode::OK))

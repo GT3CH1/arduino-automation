@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use isahc::prelude::*;
 use isahc::Request;
-use serde_json::Value;
 use crate::models::device::{Device, get_device_from_guid};
 use crate::models::device_type;
 use std::error::Error;

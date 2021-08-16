@@ -6,6 +6,7 @@ use crate::models::device::Device;
 
 /// A struct representing the command output for getting the tv volume
 #[derive(Serialize, Deserialize, Debug)]
+#[allow(non_snake_case)]
 struct VolState {
     pub muted: bool,
     pub returnValue: bool,
@@ -15,6 +16,7 @@ struct VolState {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[allow(non_snake_case)]
 pub struct TvState {
     pub on: bool,
     pub muted: bool,
@@ -68,6 +70,7 @@ pub struct SetPowerState(bool);
 
 /// The output of the requests to the tv.
 #[derive(Serialize, Deserialize, Debug)]
+#[allow(non_snake_case)]
 struct ReturnVal {
     returnValue: bool,
 }
