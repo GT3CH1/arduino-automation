@@ -53,7 +53,7 @@ mod tests {
     #[test]
     fn test_device_has_sw_version() {
         let device = get_device_from_test_uuid();
-        assert_ne!(-1, device.sw_version);
+        assert_ne!("", device.sw_version);
     }
 
     #[test]
@@ -82,12 +82,12 @@ mod tests {
                 "hwVersion": "1.0",
                 "manufacturer": "GTECH",
                 "model": "Other",
-                "swVersion": 64
+                "swVersion": "64"
             },
             "id": "rtr1",
             "name": {
                 "defaultNames": ["Basement Router"],
-                "name": ["Basement Router"],
+                "name": "Basement Router",
                 "nicknames": ["Basement Router"]
             },
             "traits": ["action.devices.traits.Reboot"],
