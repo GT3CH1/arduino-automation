@@ -96,17 +96,4 @@ mod tests {
         });
         assert_eq!(device.to_google_device().to_string(), device_json.to_string());
     }
-
-    #[test]
-    fn test_list_all_devices() {
-        let all_devices = device::get_devices();
-        let empty_vec = vec![device::Device::default()];
-        assert_ne!(empty_vec, all_devices);
-    }
-
-    #[test]
-    fn test_all_devices_count() {
-        let all_devices = device::get_devices();
-        assert_ne!(0 as usize, all_devices.len());
-    }
 }
