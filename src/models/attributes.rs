@@ -23,7 +23,7 @@ pub fn on_off_attribute() -> Value {
 /// # Return
 /// The attributes needed for TV's
 pub fn tv_attribute() -> Value {
-    let _tv = crate::models::tv::get_volume_state();
+    let _tv = crate::models::tv::get_tv_state();
     serde_json::json!({
         "commandOnlyOnOff": false,
         "queryOnlyOnOff": false,
