@@ -4,10 +4,12 @@ use std::str::FromStr;
 
 use mysql::Row;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use crate::get_pool;
 use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
+use crate::consts::*;
+use isahc::http::StatusCode;
 
 /// Data representing a device that can be automated/remotely controlled.
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,21 +50,23 @@ impl Device {
     /// # Return
     /// A formatted string we can use to send requests to.
     fn get_api_url(&self, endpoint: String) -> String {
-        match self.hardware {
+        let url = match self.hardware {
             hardware_type::Type::ARDUINO => format!("http://{}/{}", self.ip, endpoint),
             _ => "".to_string(),
-        }
+        };
+        url
     }
 
     /// Get the attributes of this device.
     /// # Return
     /// The attributes for this device.
     pub fn get_attributes(&self) -> Value {
-        match self.kind {
+        let data = match self.kind {
             device_type::Type::GARAGE => attributes::garage_attribute(),
             device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::ROUTER | device_type::Type::SqlSprinklerHost => attributes::on_off_attribute(),
             device_type::Type::TV => attributes::tv_attribute(),
-        }
+        };
+        data
     }
 
     /// Gets a URL to use for turning on/off relays on arduinos
@@ -72,20 +76,20 @@ impl Device {
     /// # Return
     /// A formatted URL we can send a request to.
     pub fn get_api_url_with_param(&self, endpoint: String, param: String) -> String {
-        match self.kind {
+        let url = match self.kind {
             device_type::Type::SqlSprinklerHost => format!("https://api.peasenet.com/sprinkler/systems/{}/state", self.guid),
             _ => format!("{}?param={}", self.get_api_url(endpoint), param)
-        }
+        };
+        url
     }
 
-    pub fn database_update(&self, state: Value, ip: String, sw_version: String) -> bool {
-        let pool = get_pool();
-        let query = format!("UPDATE `devices` SET last_state='{}', ip='{}', swVersion='{}' WHERE guid='{}'",
-                            state, ip, sw_version, self.guid);
-        match pool.prep_exec(query, ()) {
-            Ok(res) => res.affected_rows() > 0,
-            Err(..) => false
-        }
+    pub fn database_update(&self) -> bool {
+        get_firebase_devices()
+            .at(&self.guid)
+            .unwrap()
+            .set(serde_json::to_value(&self).unwrap())
+            .unwrap()
+            .code == StatusCode::OK
     }
 
     /// Gets the device type for use in google home
@@ -253,14 +257,19 @@ impl From<Row> for Device {
 impl From<sqlsprinkler::Zone> for Device {
     fn from(zone: sqlsprinkler::Zone) -> Device {
         let zone_name = format!("Zone {}", &zone.system_order + 1);
-        let pretty_name = format!("{}", &zone.name);
+        let pretty_name = f
+        ormat!("{}", &zone.name);
         let nicknames = vec![pretty_name, zone_name];
         Device {
             ip: "".to_string(),
             guid: zone.id.to_string(),
             kind: device_type::Type::SPRINKLER,
             hardware: hardware_type::Type::PI,
-            last_state: Value::from(zone.state),
+            last_state: json!({
+                "on": zone.state,
+                "id": zone.id,
+                "index": zone.system_order
+            }),
             last_seen: "".to_string(),
             sw_version: zone.id.to_string(),
             useruuid: "".to_string(),
@@ -311,60 +320,90 @@ impl Clone for Device {
 /// # Return
 ///     *   A device that corresponds to the given uuid, if there is no match, return a default device.
 pub fn get_device_from_guid(guid: &String) -> Device {
-    // Match the device to a sprinkler zone
-    if check_if_zone(guid) {
-        return sqlsprinkler::get_device_from_sqlsprinkler(guid.clone());
-    }
+    // TODO: Match the device to a sprinkler zone
+    // if check_if_zone(guid) {
+    //     return sqlsprinkler::get_device_from_sqlsprinkler(guid.clone());
+    // }
 
-    let pool = get_pool();
-    let mut conn = pool.get_conn().unwrap();
-    let query = format!("SELECT * FROM devices WHERE guid = '{}'", guid);
-    let rows = conn.query(query).unwrap();
-    let mut _device = Device::default();
-    for row in rows {
-        let _row = row.unwrap();
-        let mut dev: Device = Device::from(_row);
-        if dev.kind == device_type::Type::SqlSprinklerHost {
-            let ip = &dev.ip;
-            dev.last_state = Value::from(sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap());
-        }
+    let device_value = get_firebase_devices()
+        .at(guid)
+        .unwrap()
+        .get()
+        .unwrap()
+        .body;
+
+    let mut dev = match serde_json::from_value(device_value) {
+        Ok(d) => d,
+        Err(..) => Device::default()
+    };
+    /*
+
+        TODO: Match the device to a sprinkler zone
+
+
+        */
+    if dev.kind == device_type::Type::SqlSprinklerHost {
+        let ip = &dev.ip;
+        dev.last_state = Value::from(sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap());
+        dev.database_update();
+    } else if dev.kind == device_type::Type::TV {
         dev = tv::parse_device(dev.clone());
-        return dev;
     }
-    return _device;
+    return dev;
 }
 
 
-/// Gets all of the devices that are connected to this user in the database.
-/// # Return
-///     * A `Vec<Device>` containing all of the device information.
+/*
+// Gets all of the devices that are connected to this user in the database.
+// # Return
+//     * A `Vec<Device>` containing all of the device information.
+//TODO: This method is trash honestly.
 pub fn get_devices() -> Vec<Device> {
     let pool = get_pool();
     let mut conn = pool.get_conn().unwrap();
     let rows = conn.query("SELECT * FROM devices").unwrap();
-    device_list_from_row(rows)
+    device_list_from_firebase(rows)
 }
+
+ */
 
 /// Gets all of the devices that are connected to this user in the database.
 /// # Return
 ///     * A `Vec<Device>` containing all of the device information.
-pub fn get_devices_uuid(user_uuid: String) -> Vec<Device> {
-    let pool = get_pool();
-    let mut conn = pool.get_conn().unwrap();
-    let query = format!("SELECT * FROM devices WHERE useruuid='{}'", user_uuid);
-    let rows = conn.query(query).unwrap();
-    device_list_from_row(rows)
+pub fn get_devices_uuid(user_uuid: &String) -> Vec<Device> {
+    let firebase_device_list = get_firebase_users()
+        .at(&user_uuid)
+        .unwrap()
+        .at("devices")
+        .unwrap()
+        .get()
+        .unwrap()
+        .body;
+
+    let device_list = device_list_from_firebase(firebase_device_list);
+    device_list
 }
 
-/// Gets all the devices from the list of SQL Rows.
-fn device_list_from_row(rows: mysql::QueryResult) -> Vec<Device> {
-    let mut device_list = vec![];
-    for row in rows {
-        let _row = row.unwrap();
-        let mut dev = Device::from(_row);
-        sqlsprinkler::check_if_device_is_sqlsprinkler_host(&mut dev, &mut device_list);
-        let dev = tv::parse_device(dev.clone());
-        device_list.push(dev);
+/// Gets all the devices from
+fn device_list_from_firebase(body: Value) -> Vec<Device> {
+    let mut device_list: Vec<Device> = serde_json::from_value(body).unwrap();
+    let mut final_list = vec![];
+
+    // We need to iterate over all the devices to make sure we pick up devices
+    // that are SqlSprinkler hosts.
+    for _dev in device_list.clone() {
+        let mut dev = _dev;
+        if dev.kind == device_type::Type::TV {
+            dev = tv::parse_device(dev.clone());
+            final_list.push(dev);
+            continue;
+        } else if dev.kind == device_type::Type::SqlSprinklerHost {
+            final_list.push(dev.clone());
+            let sprinkler_list = sqlsprinkler::check_if_device_is_sqlsprinkler_host(dev.clone());
+            for sprinkler in sprinkler_list {
+                final_list.push(sprinkler);
+            }
+        }
     }
-    device_list
+    final_list
 }

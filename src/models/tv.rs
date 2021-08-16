@@ -6,7 +6,6 @@ use crate::models::device::Device;
 
 /// A struct representing the command output for getting the tv volume
 #[derive(Serialize, Deserialize, Debug)]
-#[allow(non_snake_case)]
 struct VolState {
     pub muted: bool,
     pub returnValue: bool,
@@ -16,7 +15,6 @@ struct VolState {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[allow(non_snake_case)]
 pub struct TvState {
     pub on: bool,
     pub muted: bool,
@@ -36,7 +34,6 @@ impl ::std::default::Default for TvState {
 }
 
 
-
 /// Checks to see if the given device is a TV, if so, add the fields required for TV.
 /// # Param
 /// *   dev : The Device we want to check to see if it is a TV.
@@ -51,10 +48,10 @@ pub fn parse_device(mut dev: Device) -> Device {
         } else {
             dev.last_state = serde_json::json!(TvState::default())
         }
-        dev.database_update(dev.last_state.clone(), dev.ip.clone(), dev.sw_version.clone());
-        return dev;
+        dev.database_update();
+        return dev.clone();
     }
-    dev
+    dev.clone()
 }
 
 /// Allows setting TV volume to value
@@ -71,7 +68,6 @@ pub struct SetPowerState(bool);
 
 /// The output of the requests to the tv.
 #[derive(Serialize, Deserialize, Debug)]
-#[allow(non_snake_case)]
 struct ReturnVal {
     returnValue: bool,
 }

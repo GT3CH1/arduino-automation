@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use firebase::Firebase;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -6,6 +7,7 @@ use warp::{Filter, http, Rejection};
 
 use crate::models;
 use crate::models::device;
+use crate::consts::get_firebase_users;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -48,7 +50,6 @@ pub(crate) async fn run() {
         .and(warp::path::end())
         .and(auth_request())
         .and_then(send_request);
-
     let list_devices = warp::get()
         .and(warp::path("device"))
         .and(warp::path::end())
@@ -70,7 +71,6 @@ pub(crate) async fn run() {
             } else {
                 let device = device::get_device_from_guid(&_guid);
                 let formatted = format!("{}", device);
-
                 formatted
             }
         });
@@ -88,12 +88,10 @@ pub(crate) async fn run() {
         .map(|_map: HashMap<String, String>| {
             let mut status = "".to_string();
             if _map.contains_key("guid") && _map.contains_key("ip") && _map.contains_key("state") && _map.contains_key("sw_version") {
-                /* Get the parameters from the query */
                 let guid = _map.get("guid").unwrap().to_string();
                 let ip = _map.get("ip").unwrap().to_string();
                 let _state: String = _map.get("state").unwrap().to_string();
                 let sw_version: String = _map.get("sw_version").unwrap().to_string();
-
                 let state = Value::from(_state);
                 let device_update = DeviceUpdate {
                     guid,
@@ -105,7 +103,6 @@ pub(crate) async fn run() {
             }
             status
         });
-
     let routes = set_sys_status
         .or(list_devices)
         .or(device_update)
@@ -113,7 +110,6 @@ pub(crate) async fn run() {
         .or(get_device_status)
         .or(list_google_devices)
         .or(route);
-
     warp::serve(routes)
         .run(([0, 0, 0, 0], 3030))
         .await;
@@ -144,20 +140,17 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
         Err(warp::reject())
     } else {
         let device = device::get_device_from_guid(&state.guid);
+
+        // Parse the state
         let json = state.state;
-
         if models::sqlsprinkler::check_if_zone(&state.guid) {
-
             // Match the device to a sprinkler zone
             let _state: bool = serde_json::from_value(json).unwrap();
-
             let id = match device.sw_version.parse::<i64>() {
                 Ok(r) => r - 1,
                 Err(..) => 0
             };
-
             let status = models::sqlsprinkler::set_zone(device.ip, _state, id);
-
             let response = match status {
                 true => "ok",
                 false => "fail",
@@ -165,19 +158,15 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
             Ok(warp::reply::with_status(response.to_string(), http::StatusCode::OK))
         } else {
             if device.kind == models::device_type::Type::SqlSprinklerHost {
-
                 // If the device is a sql sprinkler host, we need to send the request to it...
                 let _state: bool = serde_json::from_value(json).unwrap();
                 let status = models::sqlsprinkler::set_system(device.ip, _state);
-
                 let response = match status {
                     true => "ok",
                     false => "fail",
                 };
-
                 Ok(warp::reply::with_status(response.to_string(), http::StatusCode::OK))
             } else if device.kind == models::device_type::Type::TV {
-
                 // Check if the device is a LG TV.
                 if json["volumeLevel"] != serde_json::json!(null) {
                     let vol_state: models::tv::SetVolState = serde_json::from_value(json["volumeLevel"].clone()).unwrap();
@@ -189,7 +178,8 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
                     let _state: bool = serde_json::from_value(json).unwrap();
                     models::tv::set_power_state(_state);
                 }
-
+                // let volstate: models::tv::SetVolState = serde_json::from_value(json).unwrap();
+                // let status = models::tv::set_volume_state(volstate);
                 Ok(warp::reply::with_status("set volume state".to_string(), http::StatusCode::OK))
             } else {
                 // Everything else is an arduino.
@@ -198,10 +188,8 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
                     true => "on",
                     false => "off",
                 };
-
                 let url = device.get_api_url_with_param(endpoint.to_string(), device.guid.to_string());
                 isahc::get(url).unwrap().status().is_success();
-
                 Ok(warp::reply::with_status("ok".to_string(), http::StatusCode::OK))
             }
         }
@@ -210,68 +198,62 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
 
 /// List all devices.
 async fn list_devices(api_token: String, uid: String) -> Result<impl warp::Reply, warp::Rejection> {
-    let authed = check_auth(api_token, uid);
+    let authed = check_auth(api_token, uid.clone());
     if !authed {
         Err(warp::reject())
     } else {
-        let devices = serde_json::to_string(&device::get_devices()).unwrap();
+        let devices = serde_json::to_string(&device::get_devices_uuid(&uid)).unwrap();
         Ok(warp::reply::with_status(devices, http::StatusCode::OK))
     }
 }
 
 // fn list_devices_google(token: String) -> String {
 async fn list_devices_google(api_token: String, uid: String) -> Result<impl warp::Reply, warp::Rejection> {
-    if !check_auth(api_token, uid) {
+    if !check_auth(api_token, uid.clone()) {
         Err(warp::reject())
     } else {
-        let devices = device::get_devices();
+        // let devices = device::get_devices_useruuid(token);
+        let devices = device::get_devices_uuid(&uid);
         let mut json_arr = vec![];
-
         for device in devices.iter() {
             json_arr.push(device.to_google_device());
         }
-
+        println!("Done getting google devices.");
         let json_output = serde_json::json!(json_arr);
         let output = format!("{}", json_output);
-
         Ok(warp::reply::with_status(output, http::StatusCode::OK))
     }
 }
 
 /// Updates the given device in the database.
 async fn do_device_update(_device: DeviceUpdate) -> Result<impl warp::Reply, warp::Rejection> {
-    Ok(warp::reply::with_status(database_update(_device), http::StatusCode::OK))
+    let status: String = database_update(_device);
+    Ok(warp::reply::with_status(status, http::StatusCode::OK))
 }
 
 /// Updates the device in the database.
 fn database_update(_device: DeviceUpdate) -> String {
-    let my_state = serde_json::from_str(_device.state.as_str().unwrap()).unwrap();
-    let device = device::get_device_from_guid(&_device.guid);
-
-    let status = match device.database_update(my_state, _device.ip, _device.sw_version) {
+    let mut device = device::get_device_from_guid(&_device.guid);
+    device.last_state = _device.state;
+    device.ip = _device.ip;
+    device.sw_version = _device.sw_version;
+    let status = match device.database_update() {
         true => "updated".to_string(),
         false => "an error occurred.".to_string()
     };
-
     status
 }
 
-/// Gets a firebase instance.
-fn get_firebase() -> Firebase {
-    Firebase::authed("https://pimation-ee62a-default-rtdb.firebaseio.com", crate::consts::FIREBASE_TOKEN).unwrap()
-}
 
 /// Checks whether or not that the user id has the correct api token.
 fn check_auth(api_token: String, uid: String) -> bool {
-    let query = get_firebase()
+    let query = get_firebase_users()
         .at(&uid)
         .unwrap()
         .at("api_key")
         .unwrap();
-
     let token = query.get().unwrap().body;
     let token_str = token.as_str().unwrap();
     let token_equal = token_str == api_token.as_str();
-
     token_equal
 }

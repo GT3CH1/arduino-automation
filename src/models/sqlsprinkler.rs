@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use isahc::prelude::*;
 use isahc::Request;
 use serde_json::Value;
-use crate::models::device::{Device, get_devices};
+use crate::models::device::{Device};
 use crate::models::device_type;
 use std::error::Error;
 use regex::Regex;
@@ -91,23 +91,23 @@ fn get_zones_from_sqlsprinkler(ip: &String) -> Result<Vec<Zone>, Box<dyn Error>>
 ///     * `device_list` -> A Vec containing the list of devices we want to add all of the zones to.
 /// # Return
 ///     * True if the device is a sqlsprinkler host.
-pub fn check_if_device_is_sqlsprinkler_host(dev: &mut Device, device_list: &mut Vec<Device>) -> bool {
-    if dev.kind == device_type::Type::SqlSprinklerHost {
-        let ip = &dev.ip;
-        dev.last_state = Value::from(get_status_from_sqlsprinkler(ip).unwrap());
-        let sprinkler_list = get_zones_from_sqlsprinkler(ip).unwrap();
-        for zone in sprinkler_list {
-            // Create a device from a sprinkler zone
-            let mut sprinkler_device = Device::from(zone);
-            // Make a new guid in the form of deviceguid-zoneid
-            let new_guid = format!("{}-{}", dev.guid, sprinkler_device.guid);
-            sprinkler_device.guid = new_guid;
-            sprinkler_device.ip = dev.ip.to_string();
-            device_list.push(sprinkler_device);
-        }
-        return true;
+pub fn check_if_device_is_sqlsprinkler_host(dev: Device) -> Vec<Device> {
+    let mut device_list = Vec::new();
+    if dev.kind != device_type::Type::SqlSprinklerHost {
+        return device_list;
     }
-    return false;
+    let ip = &dev.ip;
+    let sprinkler_list = get_zones_from_sqlsprinkler(ip).unwrap();
+    for zone in sprinkler_list {
+        // Create a device from a sprinkler zone
+        let mut sprinkler_device = Device::from(zone);
+        // Make a new guid in the form of deviceguid-zoneid
+        let new_guid = format!("{}-{}", dev.guid, sprinkler_device.guid);
+        sprinkler_device.guid = new_guid;
+        sprinkler_device.ip = dev.ip.to_string();
+        device_list.push(sprinkler_device);
+    }
+    device_list
 }
 
 /// Checks to see if the given guid is a SQLSprinkler zone.
@@ -120,12 +120,13 @@ pub fn check_if_zone(guid: &String) -> bool {
     re.is_match(guid.as_str())
 }
 
-/// Checks to see if the given device is an SQLSprinkler zone. If it is, return a device of that zone.
-/// If the guid is not a SQLSprinkler zone, nothing will happen.
-/// # Param
-///     *   `dev` The device we want to check to see if it is a sqlsprinkler zone
-/// # Return
-///     * A device representing the `Zone` if it exists, an empty device if there was no match.
+/* TODO:
+// Checks to see if the given device is an SQLSprinkler zone. If it is, return a device of that zone.
+// If the guid is not a SQLSprinkler zone, nothing will happen.
+// # Param
+//     *   `dev` The device we want to check to see if it is a sqlsprinkler zone
+// # Return
+//     * A device representing the `Zone` if it exists, an empty device if there was no match.
 pub fn get_device_from_sqlsprinkler(guid: String) -> Device {
     let device_list = get_devices();
     for dev in device_list {
@@ -135,3 +136,4 @@ pub fn get_device_from_sqlsprinkler(guid: String) -> Device {
     }
     Device::default()
 }
+ */
