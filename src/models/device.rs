@@ -1,15 +1,13 @@
 use std::fmt;
 use std::process::Command;
 use std::str::FromStr;
-
-use mysql::Row;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use crate::get_pool;
+use isahc::http::StatusCode;
+
 use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
 use crate::consts::*;
-use isahc::http::StatusCode;
 
 /// Data representing a device that can be automated/remotely controlled.
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -196,64 +194,6 @@ impl fmt::Display for Device {
     }
 }
 
-/// Converts a row from the MySQL database to a Device struct.
-
-impl From<Row> for Device {
-    fn from(row: Row) -> Device {
-        let ip: String = row.get(0).unwrap();
-        let guid: String = row.get(1).unwrap();
-
-        let kind_type: String = row.get(2).unwrap();
-        let kind = device_type::Type::from_str(kind_type.as_str()).unwrap();
-
-        let hardware_type: String = row.get(3).unwrap();
-        let hardware = hardware_type::Type::from_str(hardware_type.as_str()).unwrap();
-
-        let state: String = row.get(4).unwrap();
-
-        let last_state = serde_json::from_str(&state).unwrap();
-
-        let last_seen: String = match row.get(5) {
-            Some(res) => res,
-            None => "".to_string(),
-        };
-
-        let _sw_version: String = match row.get(6) {
-            Some(res) => res,
-            None => "0".to_string()
-        };
-
-        let sw_version = match _sw_version.parse::<String>() {
-            Ok(res) => res,
-            Err(..) => "0".to_string()
-        };
-
-        let useruuid: String = match row.get(7) {
-            Some(res) => res,
-            None => "000-000-000-000".into(),
-        };
-
-        let name: String = match row.get(8) {
-            Some(res) => res,
-            None => "none".into()
-        };
-        let nicknames = vec![format!("{}", name)];
-        let device = Device {
-            ip,
-            guid,
-            kind,
-            hardware,
-            last_state,
-            last_seen,
-            sw_version,
-            useruuid,
-            name,
-            nicknames,
-        };
-        device
-    }
-}
-
 impl From<sqlsprinkler::Zone> for Device {
     fn from(zone: sqlsprinkler::Zone) -> Device {
         let zone_name = format!("Zone {}", &zone.system_order + 1);
@@ -319,7 +259,7 @@ impl Clone for Device {
 /// # Return
 ///     *   A device that corresponds to the given uuid, if there is no match, return a default device.
 pub fn get_device_from_guid(guid: &String) -> Device {
-    // TODO: Match the device to a sprinkler zone
+
     if check_if_zone(guid) {
         return sqlsprinkler::get_zone(guid);
     }
@@ -335,12 +275,7 @@ pub fn get_device_from_guid(guid: &String) -> Device {
         Ok(d) => d,
         Err(..) => Device::default()
     };
-    /*
 
-        TODO: Match the device to a sprinkler zone
-
-
-        */
     if dev.kind == device_type::Type::SqlSprinklerHost {
         let ip = &dev.ip;
         dev.last_state = Value::from(sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap());

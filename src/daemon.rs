@@ -37,7 +37,6 @@ struct FirebaseToken {
 
 #[tokio::main]
 pub(crate) async fn run() {
-    env_logger::init();
     let cors = warp::cors::cors().allow_any_origin()
         .allow_headers(vec!["x-auth-id", "x-api-key", "User-Agent", "Sec-Fetch-Mode", "Referer", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Content-Type"])
         .allow_methods(vec!["GET", "POST", "PUT"]);
