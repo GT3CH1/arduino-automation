@@ -257,8 +257,7 @@ impl From<Row> for Device {
 impl From<sqlsprinkler::Zone> for Device {
     fn from(zone: sqlsprinkler::Zone) -> Device {
         let zone_name = format!("Zone {}", &zone.system_order + 1);
-        let pretty_name = f
-        ormat!("{}", &zone.name);
+        let pretty_name = format!("{}", &zone.name);
         let nicknames = vec![pretty_name, zone_name];
         Device {
             ip: "".to_string(),
@@ -321,9 +320,9 @@ impl Clone for Device {
 ///     *   A device that corresponds to the given uuid, if there is no match, return a default device.
 pub fn get_device_from_guid(guid: &String) -> Device {
     // TODO: Match the device to a sprinkler zone
-    // if check_if_zone(guid) {
-    //     return sqlsprinkler::get_device_from_sqlsprinkler(guid.clone());
-    // }
+    if check_if_zone(guid) {
+        return sqlsprinkler::get_zone(guid);
+    }
 
     let device_value = get_firebase_devices()
         .at(guid)
@@ -351,21 +350,6 @@ pub fn get_device_from_guid(guid: &String) -> Device {
     }
     return dev;
 }
-
-
-/*
-// Gets all of the devices that are connected to this user in the database.
-// # Return
-//     * A `Vec<Device>` containing all of the device information.
-//TODO: This method is trash honestly.
-pub fn get_devices() -> Vec<Device> {
-    let pool = get_pool();
-    let mut conn = pool.get_conn().unwrap();
-    let rows = conn.query("SELECT * FROM devices").unwrap();
-    device_list_from_firebase(rows)
-}
-
- */
 
 /// Gets all of the devices that are connected to this user in the database.
 /// # Return

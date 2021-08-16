@@ -6,4 +6,5 @@ pub mod traits;
 
 mod tests;
 mod attributes;
+pub mod sqlsprinkler;
 
