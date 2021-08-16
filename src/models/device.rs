@@ -47,23 +47,21 @@ impl Device {
     /// # Return
     /// A formatted string we can use to send requests to.
     fn get_api_url(&self, endpoint: String) -> String {
-        let url = match self.hardware {
+       match self.hardware {
             hardware_type::Type::ARDUINO => format!("http://{}/{}", self.ip, endpoint),
             _ => "".to_string(),
-        };
-        url
+        }
     }
 
     /// Get the attributes of this device.
     /// # Return
     /// The attributes for this device.
     pub fn get_attributes(&self) -> Value {
-        let data = match self.kind {
+        match self.kind {
             device_type::Type::GARAGE => attributes::garage_attribute(),
             device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::ROUTER | device_type::Type::SqlSprinklerHost => attributes::on_off_attribute(),
             device_type::Type::TV => attributes::tv_attribute(),
-        };
-        data
+        }
     }
 
     /// Gets a URL to use for turning on/off relays on arduinos
@@ -73,13 +71,15 @@ impl Device {
     /// # Return
     /// A formatted URL we can send a request to.
     pub fn get_api_url_with_param(&self, endpoint: String, param: String) -> String {
-        let url = match self.kind {
+        match self.kind {
             device_type::Type::SqlSprinklerHost => format!("https://api.peasenet.com/sprinkler/systems/{}/state", self.guid),
             _ => format!("{}?param={}", self.get_api_url(endpoint), param)
-        };
-        url
+        }
     }
 
+    /// Updates the device in the backend database
+    /// # Return
+    /// A bool representing if the update was successful.
     pub fn database_update(&self) -> bool {
         get_firebase_devices()
             .at(&self.guid)
@@ -268,6 +268,7 @@ pub fn get_device_from_guid(guid: &String) -> Device {
         .get()
         .unwrap()
         .body;
+
     let mut dev = match serde_json::from_value(device_value) {
         Ok(d) => d,
         Err(e) => {
@@ -302,11 +303,12 @@ pub fn get_devices_uuid(user_uuid: &String) -> Vec<Device> {
     device_list
 }
 
-/// Gets all the devices from
+/// Gets all the devices from firebase + any SQLSprinkler devices
 fn device_list_from_firebase(body: Value) -> Vec<Device> {
     let device_guid_list: Vec<String> = serde_json::from_value(body).unwrap();
     let mut device_list = vec![];
 
+    // Get all the devices that belong to our user and store them in a list.
     for guid in device_guid_list {
         device_list.push(get_device_from_guid(&guid));
     }
@@ -314,7 +316,7 @@ fn device_list_from_firebase(body: Value) -> Vec<Device> {
     let mut final_list = vec![];
 
     // We need to iterate over all the devices to make sure we pick up devices
-    // that are SqlSprinkler hosts.
+    // that are SqlSprinkler hosts and their respective zones.
     for _dev in device_list.clone() {
         let mut dev = _dev;
         if dev.kind == device_type::Type::TV {
