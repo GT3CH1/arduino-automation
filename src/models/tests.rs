@@ -2,10 +2,10 @@
 mod tests {
     use crate::models::*;
 
-    const uuid: &str = "rtr1";
+    const UUID: &str = "rtr1";
 
     fn get_device_from_test_uuid() -> device::Device {
-        let device = device::get_device_from_guid(&String::from(uuid));
+        let device = device::get_device_from_guid(&String::from(UUID));
         device
     }
 
