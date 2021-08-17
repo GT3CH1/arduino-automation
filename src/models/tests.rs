@@ -39,12 +39,6 @@ mod tests {
     }
 
     #[test]
-    fn test_device_has_timestamp() {
-        let device = get_device_from_test_uuid();
-        assert_ne!("".to_string(), device.last_seen);
-    }
-
-    #[test]
     fn test_device_has_ip() {
         let device = get_device_from_test_uuid();
         assert_ne!("".to_string(), device.ip);
