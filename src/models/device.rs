@@ -26,9 +26,6 @@ pub struct Device {
     /// The last state of the device (can be changed)
     pub last_state: Value,
 
-    /// When the device in the database was last updated.
-    pub last_seen: String,
-
     /// The current software version on the device.
     pub sw_version: String,
 
@@ -208,7 +205,6 @@ impl From<sqlsprinkler::Zone> for Device {
                 "id": zone.id,
                 "index": zone.system_order
             }),
-            last_seen: "".to_string(),
             sw_version: zone.id.to_string(),
             useruuid: "".to_string(),
             name: zone.name,
@@ -225,7 +221,6 @@ impl ::std::default::Default for Device {
             kind: device_type::Type::SWITCH,
             hardware: hardware_type::Type::OTHER,
             last_state: Value::from(false),
-            last_seen: "".to_string(),
             sw_version: "0".to_string(),
             useruuid: "".to_string(),
             name: "".to_string(),
@@ -242,7 +237,6 @@ impl Clone for Device {
             kind: self.kind,
             hardware: self.hardware,
             last_state: self.last_state.clone(),
-            last_seen: self.last_seen.clone(),
             sw_version: self.sw_version.clone(),
             useruuid: self.useruuid.clone(),
             name: self.name.clone(),
@@ -282,63 +276,62 @@ pub fn get_device_from_guid(guid: &String) -> Device {
             let ip = &dev.ip;
             dev.last_state = Value::from(sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap());
             dev.database_update();
-        },
+        }
         device_type::Type::TV => {
             dev = tv::parse_device(dev.clone());
-        },
+        }
         _ => {}
     }
     dev
 }
 
-    /// Gets all of the devices that are connected to this user in the database.
-    /// # Return
-    ///     * A `Vec<Device>` containing all of the device information.
-    pub fn get_devices_uuid(user_uuid: &String) -> Vec<Device> {
-        let firebase_device_list = get_firebase_users()
-            .at(&user_uuid)
-            .unwrap()
-            .at("devices")
-            .unwrap()
-            .get()
-            .unwrap()
-            .body;
-        let device_list = device_list_from_firebase(firebase_device_list);
-        device_list
+/// Gets all of the devices that are connected to this user in the database.
+/// # Return
+///     * A `Vec<Device>` containing all of the device information.
+pub fn get_devices_uuid(user_uuid: &String) -> Vec<Device> {
+    let firebase_device_list = get_firebase_users()
+        .at(&user_uuid)
+        .unwrap()
+        .at("devices")
+        .unwrap()
+        .get()
+        .unwrap()
+        .body;
+    let device_list = device_list_from_firebase(firebase_device_list);
+    device_list
+}
+
+/// Gets all the devices from firebase + any SQLSprinkler devices
+fn device_list_from_firebase(body: Value) -> Vec<Device> {
+    let device_guid_list: Vec<String> = serde_json::from_value(body).unwrap();
+    let mut device_list = vec![];
+
+    // Get all the devices that belong to our user and store them in a list.
+    for guid in device_guid_list {
+        device_list.push(get_device_from_guid(&guid));
     }
 
-    /// Gets all the devices from firebase + any SQLSprinkler devices
-    fn device_list_from_firebase(body: Value) -> Vec<Device> {
-        let device_guid_list: Vec<String> = serde_json::from_value(body).unwrap();
-        let mut device_list = vec![];
+    let mut final_list = vec![];
 
-        // Get all the devices that belong to our user and store them in a list.
-        for guid in device_guid_list {
-            device_list.push(get_device_from_guid(&guid));
-        }
+    for _dev in device_list.clone() {
+        let mut dev = _dev;
 
-        let mut final_list = vec![];
-
-        // We need to iterate over all the devices to make sure we pick up devices
-        // that are SqlSprinkler hosts and their respective zones.
-        for _dev in device_list.clone() {
-            let mut dev = _dev;
-            match dev.kind {
-                device_type::Type::TV => {
-                    dev = tv::parse_device(dev.clone());
-                    final_list.push(dev);
-                }
-                device_type::Type::SqlSprinklerHost => {
-                    final_list.push(dev.clone());
-                    let sprinkler_list = sqlsprinkler::check_if_device_is_sqlsprinkler_host(dev.clone());
-                    for sprinkler in sprinkler_list {
-                        final_list.push(sprinkler);
-                    }
-                }
-                _ => {
-                    final_list.push(dev.clone());
+        match dev.kind {
+            device_type::Type::TV => {
+                dev = tv::parse_device(dev.clone());
+                final_list.push(dev);
+            }
+            device_type::Type::SqlSprinklerHost => {
+                final_list.push(dev.clone());
+                let sprinkler_list = sqlsprinkler::check_if_device_is_sqlsprinkler_host(dev.clone());
+                for sprinkler in sprinkler_list {
+                    final_list.push(sprinkler);
                 }
             }
+            _ => {
+                final_list.push(dev.clone());
+            }
         }
-        final_list
     }
+    final_list
+}
