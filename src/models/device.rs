@@ -1,12 +1,13 @@
 use std::fmt;
 use std::process::Command;
+
+use isahc::http::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use isahc::http::StatusCode;
 
+use crate::consts::*;
 use crate::models::*;
 use crate::models::sqlsprinkler::check_if_zone;
-use crate::consts::*;
 
 /// Data representing a device that can be automated/remotely controlled.
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,6 +38,27 @@ pub struct Device {
 
     /// A list of nicknames for the device
     pub nicknames: Vec<String>,
+}
+
+
+/// Gets all the traits that belong to a TV.
+fn tv_traits() -> Vec<&'static str> {
+    vec!["action.devices.traits.OnOff", "action.devices.traits.Volume"]
+}
+
+/// Gets all the traits that belong to opening/closing doors
+fn open_close_traits() -> Vec<&'static str> {
+    vec!["action.devices.traits.OpenClose"]
+}
+
+/// Gets all traits that belong to turning things on/off
+fn on_off_traits() -> Vec<&'static str> {
+    vec!["action.devices.traits.OnOff"]
+}
+
+/// Gets all traits that belong to things that can be rebooted
+fn reboot_traits() -> Vec<&'static str> {
+    vec!["action.devices.traits.Reboot"]
 }
 
 impl Device {
@@ -105,10 +127,10 @@ impl Device {
     /// A list (vec) of traits that this device has.
     pub fn get_google_device_traits(&self) -> Vec<&str> {
         match self.kind {
-            device_type::Type::GARAGE => traits::open_close_traits(),
-            device_type::Type::ROUTER => traits::reboot_traits(),
-            device_type::Type::TV => traits::tv_traits(),
-            _ => traits::on_off_traits()
+            device_type::Type::GARAGE => open_close_traits(),
+            device_type::Type::ROUTER => reboot_traits(),
+            device_type::Type::TV => tv_traits(),
+            _ => on_off_traits()
         }
     }
 
@@ -183,67 +205,6 @@ impl Device {
     }
 }
 
-impl fmt::Display for Device {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let serialized = serde_json::to_string(&self).unwrap();
-        write!(f, "{}", serialized)
-    }
-}
-
-impl From<sqlsprinkler::Zone> for Device {
-    fn from(zone: sqlsprinkler::Zone) -> Device {
-        let zone_name = format!("Zone {}", &zone.system_order + 1);
-        let pretty_name = format!("{}", &zone.name);
-        let nicknames = vec![pretty_name, zone_name];
-        Device {
-            ip: "".to_string(),
-            guid: zone.id.to_string(),
-            kind: device_type::Type::SPRINKLER,
-            hardware: hardware_type::Type::PI,
-            last_state: json!({
-                "on": zone.state,
-                "id": zone.id,
-                "index": zone.system_order
-            }),
-            sw_version: zone.id.to_string(),
-            useruuid: "".to_string(),
-            name: zone.name,
-            nicknames,
-        }
-    }
-}
-
-impl ::std::default::Default for Device {
-    fn default() -> Device {
-        Device {
-            ip: "".to_string(),
-            guid: "".to_string(),
-            kind: device_type::Type::SWITCH,
-            hardware: hardware_type::Type::OTHER,
-            last_state: Value::from(false),
-            sw_version: "0".to_string(),
-            useruuid: "".to_string(),
-            name: "".to_string(),
-            nicknames: vec!["".to_string()],
-        }
-    }
-}
-
-impl Clone for Device {
-    fn clone(&self) -> Self {
-        Device {
-            ip: self.ip.clone(),
-            guid: self.guid.clone(),
-            kind: self.kind,
-            hardware: self.hardware,
-            last_state: self.last_state.clone(),
-            sw_version: self.sw_version.clone(),
-            useruuid: self.useruuid.clone(),
-            name: self.name.clone(),
-            nicknames: self.nicknames.clone(),
-        }
-    }
-}
 
 /// Gets the device from the database that corresponds to the given UUID.  If the device has the following pattern:
 /// xxxxxxxx-yyy-zzzzzzzzzzzz-n then we will get the device status from the SQLSprinkler host.
@@ -334,4 +295,66 @@ fn device_list_from_firebase(body: Value) -> Vec<Device> {
         }
     }
     final_list
+}
+
+impl fmt::Display for Device {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let serialized = serde_json::to_string(&self).unwrap();
+        write!(f, "{}", serialized)
+    }
+}
+
+impl From<sqlsprinkler::Zone> for Device {
+    fn from(zone: sqlsprinkler::Zone) -> Device {
+        let zone_name = format!("Zone {}", &zone.system_order + 1);
+        let pretty_name = format!("{}", &zone.name);
+        let nicknames = vec![pretty_name, zone_name];
+        Device {
+            ip: "".to_string(),
+            guid: zone.id.to_string(),
+            kind: device_type::Type::SPRINKLER,
+            hardware: hardware_type::Type::PI,
+            last_state: json!({
+                "on": zone.state,
+                "id": zone.id,
+                "index": zone.system_order
+            }),
+            sw_version: zone.id.to_string(),
+            useruuid: "".to_string(),
+            name: zone.name,
+            nicknames,
+        }
+    }
+}
+
+impl ::std::default::Default for Device {
+    fn default() -> Device {
+        Device {
+            ip: "".to_string(),
+            guid: "".to_string(),
+            kind: device_type::Type::SWITCH,
+            hardware: hardware_type::Type::OTHER,
+            last_state: Value::from(false),
+            sw_version: "0".to_string(),
+            useruuid: "".to_string(),
+            name: "".to_string(),
+            nicknames: vec!["".to_string()],
+        }
+    }
+}
+
+impl Clone for Device {
+    fn clone(&self) -> Self {
+        Device {
+            ip: self.ip.clone(),
+            guid: self.guid.clone(),
+            kind: self.kind,
+            hardware: self.hardware,
+            last_state: self.last_state.clone(),
+            sw_version: self.sw_version.clone(),
+            useruuid: self.useruuid.clone(),
+            name: self.name.clone(),
+            nicknames: self.nicknames.clone(),
+        }
+    }
 }
