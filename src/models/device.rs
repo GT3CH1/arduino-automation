@@ -1,5 +1,6 @@
 use std::fmt;
 use std::process::Command;
+use std::str::FromStr;
 
 use isahc::http::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,7 @@ pub struct Device {
     pub kind: device_type::Type,
 
     /// The hardware used on the device
-    pub hardware: hardware_type::Type,
+    pub hardware: Type,
 
     /// The last state of the device (can be changed)
     pub last_state: Value,
@@ -61,13 +62,36 @@ fn reboot_traits() -> Vec<&'static str> {
     vec!["action.devices.traits.Reboot"]
 }
 
+/// Represents hardware types
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
+pub enum Type {
+    ARDUINO,
+    PI,
+    OTHER,
+    LG,
+}
+
+impl FromStr for Type {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Type, ()> {
+        match s {
+            "ARDUINO" => Ok(Type::ARDUINO),
+            "PI" => Ok(Type::PI),
+            "OTHER" => Ok(Type::OTHER),
+            "LG" => Ok(Type::LG),
+            _ => Err(())
+        }
+    }
+}
+
+
 impl Device {
     /// Gets the API Url of the device, with the endpoint.
     /// # Return
     /// A formatted string we can use to send requests to.
     fn get_api_url(&self, endpoint: String) -> String {
         match self.hardware {
-            hardware_type::Type::ARDUINO => format!("http://{}/{}", self.ip, endpoint),
+            Type::ARDUINO => format!("http://{}/{}", self.ip, endpoint),
             _ => "".to_string(),
         }
     }
@@ -139,10 +163,10 @@ impl Device {
     /// The hardware in a nice string format.
     pub fn get_google_device_hardware(&self) -> &str {
         match self.hardware {
-            hardware_type::Type::ARDUINO => "Arduino",
-            hardware_type::Type::PI => "Raspberry Pi",
-            hardware_type::Type::OTHER => "Other",
-            hardware_type::Type::LG => "LG",
+            Type::ARDUINO => "Arduino",
+            Type::PI => "Raspberry Pi",
+            Type::OTHER => "Other",
+            Type::LG => "LG",
         }
     }
 
@@ -313,7 +337,7 @@ impl From<sqlsprinkler::Zone> for Device {
             ip: "".to_string(),
             guid: zone.id.to_string(),
             kind: device_type::Type::SPRINKLER,
-            hardware: hardware_type::Type::PI,
+            hardware: Type::PI,
             last_state: json!({
                 "on": zone.state,
                 "id": zone.id,
@@ -333,7 +357,7 @@ impl ::std::default::Default for Device {
             ip: "".to_string(),
             guid: "".to_string(),
             kind: device_type::Type::SWITCH,
-            hardware: hardware_type::Type::OTHER,
+            hardware: Type::OTHER,
             last_state: Value::from(false),
             sw_version: "0".to_string(),
             useruuid: "".to_string(),
