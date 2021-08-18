@@ -1,10 +1,11 @@
-use serde::{Deserialize, Serialize};
+use std::error::Error;
+
 use isahc::prelude::*;
 use isahc::Request;
-use crate::models::device::{Device, get_device_from_guid};
-use crate::models::device_type;
-use std::error::Error;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+
+use crate::models::device::{Device, DeviceType, get_device_from_guid};
 
 /// A struct representing the data from SQLSprinkler zones.
 #[derive(Deserialize)]
@@ -98,7 +99,7 @@ fn get_zones_from_sqlsprinkler(ip: &String) -> Result<Vec<Zone>, Box<dyn Error>>
 pub fn check_if_device_is_sqlsprinkler_host(dev: Device) -> Vec<Device> {
     let mut device_list = Vec::new();
 
-    if dev.kind != device_type::Type::SqlSprinklerHost {
+    if dev.kind != DeviceType::SqlSprinklerHost {
         return device_list;
     }
 

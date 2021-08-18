@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use warp::{Filter, http, Rejection};
 
+use crate::consts::get_firebase_users;
 use crate::models;
 use crate::models::device;
-use crate::consts::get_firebase_users;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct DeviceState {
@@ -157,7 +157,7 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
             Ok(warp::reply::with_status(response.to_string(), http::StatusCode::OK))
         } else {
             match device.kind {
-                models::device_type::Type::SqlSprinklerHost => {
+                models::device::DeviceType::SqlSprinklerHost => {
                     // If the device is a sql sprinkler host, we need to send a request to it...
                     let _state: bool = serde_json::from_value(json).unwrap();
                     let status = models::sqlsprinkler::set_system(device.ip, _state);
@@ -168,7 +168,7 @@ async fn send_request(state: DeviceState, api_token: String, uid: String) -> Res
                     Ok(warp::reply::with_status(response.to_string(), http::StatusCode::OK))
                 }
 
-                models::device_type::Type::TV => {
+                models::device::DeviceType::TV => {
                     // Check if the device is a LG TV.
                     if json["volumeLevel"] != serde_json::json!(null) {
                         let vol_state: models::tv::SetVolState = serde_json::from_value(json["volumeLevel"].clone()).unwrap();

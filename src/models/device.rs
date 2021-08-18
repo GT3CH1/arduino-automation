@@ -20,7 +20,7 @@ pub struct Device {
     pub guid: String,
 
     /// What kind the device is
-    pub kind: device_type::Type,
+    pub kind: DeviceType,
 
     /// The hardware used on the device
     pub hardware: HardwareType,
@@ -41,26 +41,6 @@ pub struct Device {
     pub nicknames: Vec<String>,
 }
 
-
-/// Gets all the traits that belong to a TV.
-fn tv_traits() -> Vec<&'static str> {
-    vec!["action.devices.traits.OnOff", "action.devices.traits.Volume"]
-}
-
-/// Gets all the traits that belong to opening/closing doors
-fn open_close_traits() -> Vec<&'static str> {
-    vec!["action.devices.traits.OpenClose"]
-}
-
-/// Gets all traits that belong to turning things on/off
-fn on_off_traits() -> Vec<&'static str> {
-    vec!["action.devices.traits.OnOff"]
-}
-
-/// Gets all traits that belong to things that can be rebooted
-fn reboot_traits() -> Vec<&'static str> {
-    vec!["action.devices.traits.Reboot"]
-}
 
 /// Represents hardware types
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
@@ -84,6 +64,60 @@ pub enum DeviceType {
     TV,
 }
 
+/// Gets all the traits that belong to a TV.
+fn tv_traits() -> Vec<&'static str> {
+    vec!["action.devices.traits.OnOff", "action.devices.traits.Volume"]
+}
+
+/// Gets all the traits that belong to opening/closing doors
+fn open_close_traits() -> Vec<&'static str> {
+    vec!["action.devices.traits.OpenClose"]
+}
+
+/// Gets all traits that belong to turning things on/off
+fn on_off_traits() -> Vec<&'static str> {
+    vec!["action.devices.traits.OnOff"]
+}
+
+/// Gets all traits that belong to things that can be rebooted
+fn reboot_traits() -> Vec<&'static str> {
+    vec!["action.devices.traits.Reboot"]
+}
+
+/// Gets attributes for garage doors
+/// # Return
+/// The attributes needed for garage doors.
+fn garage_attribute() -> Value {
+    serde_json::json!({
+        "discreteOnlyOpenClose": true
+    })
+}
+
+/// Gets the attributes for on/off devices (switches, outlets, some lights)
+/// # Return
+/// The attributes needed for on/off devices
+fn on_off_attribute() -> Value {
+    serde_json::json!({
+        "commandOnlyOnOff": false,
+        "queryOnlyOnOff": false
+    })
+}
+
+/// Gets all the attributes needed for TV's
+/// # Return
+/// The attributes needed for TV's
+fn tv_attribute() -> Value {
+    let _tv = crate::models::tv::get_tv_state();
+    serde_json::json!({
+        "commandOnlyOnOff": false,
+        "queryOnlyOnOff": false,
+        "volumeMaxLevel": _tv.volumeMax,
+        "volumeCanMuteAndUnmute": true,
+        "commandOnlyVolume": false,
+        "volumeDefaultPercentage": 10
+    })
+}
+
 impl Device {
     /// Gets the API Url of the device, with the endpoint.
     /// # Return
@@ -100,9 +134,9 @@ impl Device {
     /// The attributes for this device.
     pub fn get_attributes(&self) -> Value {
         match self.kind {
-            device_type::Type::GARAGE => attributes::garage_attribute(),
-            device_type::Type::LIGHT | device_type::Type::SWITCH | device_type::Type::SPRINKLER | device_type::Type::ROUTER | device_type::Type::SqlSprinklerHost => attributes::on_off_attribute(),
-            device_type::Type::TV => attributes::tv_attribute(),
+            DeviceType::GARAGE => garage_attribute(),
+            DeviceType::LIGHT | DeviceType::SWITCH | DeviceType::SPRINKLER | DeviceType::ROUTER | DeviceType::SqlSprinklerHost => on_off_attribute(),
+            DeviceType::TV => tv_attribute(),
         }
     }
 
@@ -114,7 +148,7 @@ impl Device {
     /// A formatted URL we can send a request to.
     pub fn get_api_url_with_param(&self, endpoint: String, param: String) -> String {
         match self.kind {
-            device_type::Type::SqlSprinklerHost => format!("https://api.peasenet.com/sprinkler/systems/{}/state", self.guid),
+            DeviceType::SqlSprinklerHost => format!("https://api.peasenet.com/sprinkler/systems/{}/state", self.guid),
             _ => format!("{}?param={}", self.get_api_url(endpoint), param)
         }
     }
@@ -136,12 +170,12 @@ impl Device {
     /// A str representing the type of device that google home recognizes.
     pub fn get_google_device_type(&self) -> &str {
         match self.kind {
-            device_type::Type::LIGHT => "action.devices.types.LIGHT",
-            device_type::Type::SWITCH | device_type::Type::SqlSprinklerHost => "action.devices.types.SWITCH",
-            device_type::Type::GARAGE => "action.devices.types.GARAGE",
-            device_type::Type::SPRINKLER => "action.devices.types.SPRINKLER",
-            device_type::Type::ROUTER => "action.devices.types.ROUTER",
-            device_type::Type::TV => "action.devices.types.TV"
+            DeviceType::LIGHT => "action.devices.types.LIGHT",
+            DeviceType::SWITCH | DeviceType::SqlSprinklerHost => "action.devices.types.SWITCH",
+            DeviceType::GARAGE => "action.devices.types.GARAGE",
+            DeviceType::SPRINKLER => "action.devices.types.SPRINKLER",
+            DeviceType::ROUTER => "action.devices.types.ROUTER",
+            DeviceType::TV => "action.devices.types.TV"
         }
     }
 
@@ -150,9 +184,9 @@ impl Device {
     /// A list (vec) of traits that this device has.
     pub fn get_google_device_traits(&self) -> Vec<&str> {
         match self.kind {
-            device_type::Type::GARAGE => open_close_traits(),
-            device_type::Type::ROUTER => reboot_traits(),
-            device_type::Type::TV => tv_traits(),
+            DeviceType::GARAGE => open_close_traits(),
+            DeviceType::ROUTER => reboot_traits(),
+            DeviceType::TV => tv_traits(),
             _ => on_off_traits()
         }
     }
@@ -256,12 +290,12 @@ pub fn get_device_from_guid(guid: &String) -> Device {
     };
 
     match dev.kind {
-        device_type::Type::SqlSprinklerHost => {
+        DeviceType::SqlSprinklerHost => {
             let ip = &dev.ip;
             dev.last_state = Value::from(sqlsprinkler::get_status_from_sqlsprinkler(ip).unwrap());
             dev.database_update();
         }
-        device_type::Type::TV => {
+        DeviceType::TV => {
             dev = tv::parse_device(dev.clone());
         }
         _ => {}
@@ -301,11 +335,11 @@ fn device_list_from_firebase(body: Value) -> Vec<Device> {
         let mut dev = _dev;
 
         match dev.kind {
-            device_type::Type::TV => {
+            DeviceType::TV => {
                 dev = tv::parse_device(dev.clone());
                 final_list.push(dev);
             }
-            device_type::Type::SqlSprinklerHost => {
+            DeviceType::SqlSprinklerHost => {
                 final_list.push(dev.clone());
                 let sprinkler_list = sqlsprinkler::check_if_device_is_sqlsprinkler_host(dev.clone());
                 for sprinkler in sprinkler_list {
@@ -335,7 +369,7 @@ impl From<sqlsprinkler::Zone> for Device {
         Device {
             ip: "".to_string(),
             guid: zone.id.to_string(),
-            kind: device_type::Type::SPRINKLER,
+            kind: DeviceType::SPRINKLER,
             hardware: HardwareType::PI,
             last_state: json!({
                 "on": zone.state,
@@ -355,7 +389,7 @@ impl ::std::default::Default for Device {
         Device {
             ip: "".to_string(),
             guid: "".to_string(),
-            kind: device_type::Type::SWITCH,
+            kind: DeviceType::SWITCH,
             hardware: HardwareType::OTHER,
             last_state: Value::from(false),
             sw_version: "0".to_string(),
