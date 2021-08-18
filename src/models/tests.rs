@@ -29,13 +29,13 @@ mod tests {
     #[test]
     fn test_device_has_correct_kind() {
         let device = get_device_from_test_uuid();
-        assert_eq!(device::Type::ROUTER, device.kind);
+        assert_eq!(device::DeviceType::ROUTER, device.kind);
     }
 
     #[test]
     fn test_device_has_correct_hardware_type() {
         let device = get_device_from_test_uuid();
-        assert_eq!(device::Type::OTHER, device.hardware);
+        assert_eq!(device::HardwareType::OTHER, device.hardware);
     }
 
     #[test]

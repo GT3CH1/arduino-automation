@@ -267,11 +267,11 @@ name = "firebase"
 version = "0.9.2"
 source = "git+https://github.com/gt3ch1/rust-firebase#1bd74168bdb4691bf1880608879c8495eb90f163"
 dependencies = [
-    "isahc",
-    "rustc-serialize",
-    "serde",
-    "serde_json",
-    "url",
+ "isahc",
+ "rustc-serialize",
+ "serde",
+ "serde_json",
+ "url",
 ]
 
 [[package]]

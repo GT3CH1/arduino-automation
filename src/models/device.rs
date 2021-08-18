@@ -23,7 +23,7 @@ pub struct Device {
     pub kind: device_type::Type,
 
     /// The hardware used on the device
-    pub hardware: Type,
+    pub hardware: HardwareType,
 
     /// The last state of the device (can be changed)
     pub last_state: Value,
@@ -64,26 +64,25 @@ fn reboot_traits() -> Vec<&'static str> {
 
 /// Represents hardware types
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
-pub enum Type {
+pub enum HardwareType {
     ARDUINO,
     PI,
     OTHER,
     LG,
 }
 
-impl FromStr for Type {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Type, ()> {
-        match s {
-            "ARDUINO" => Ok(Type::ARDUINO),
-            "PI" => Ok(Type::PI),
-            "OTHER" => Ok(Type::OTHER),
-            "LG" => Ok(Type::LG),
-            _ => Err(())
-        }
-    }
-}
 
+/// Represents all the different types of devices we can have
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
+pub enum DeviceType {
+    LIGHT,
+    SWITCH,
+    GARAGE,
+    SPRINKLER,
+    ROUTER,
+    SqlSprinklerHost,
+    TV,
+}
 
 impl Device {
     /// Gets the API Url of the device, with the endpoint.
@@ -91,7 +90,7 @@ impl Device {
     /// A formatted string we can use to send requests to.
     fn get_api_url(&self, endpoint: String) -> String {
         match self.hardware {
-            Type::ARDUINO => format!("http://{}/{}", self.ip, endpoint),
+            HardwareType::ARDUINO => format!("http://{}/{}", self.ip, endpoint),
             _ => "".to_string(),
         }
     }
@@ -163,10 +162,10 @@ impl Device {
     /// The hardware in a nice string format.
     pub fn get_google_device_hardware(&self) -> &str {
         match self.hardware {
-            Type::ARDUINO => "Arduino",
-            Type::PI => "Raspberry Pi",
-            Type::OTHER => "Other",
-            Type::LG => "LG",
+            HardwareType::ARDUINO => "Arduino",
+            HardwareType::PI => "Raspberry Pi",
+            HardwareType::OTHER => "Other",
+            HardwareType::LG => "LG",
         }
     }
 
@@ -337,7 +336,7 @@ impl From<sqlsprinkler::Zone> for Device {
             ip: "".to_string(),
             guid: zone.id.to_string(),
             kind: device_type::Type::SPRINKLER,
-            hardware: Type::PI,
+            hardware: HardwareType::PI,
             last_state: json!({
                 "on": zone.state,
                 "id": zone.id,
@@ -357,7 +356,7 @@ impl ::std::default::Default for Device {
             ip: "".to_string(),
             guid: "".to_string(),
             kind: device_type::Type::SWITCH,
-            hardware: Type::OTHER,
+            hardware: HardwareType::OTHER,
             last_state: Value::from(false),
             sw_version: "0".to_string(),
             useruuid: "".to_string(),
@@ -379,6 +378,36 @@ impl Clone for Device {
             useruuid: self.useruuid.clone(),
             name: self.name.clone(),
             nicknames: self.nicknames.clone(),
+        }
+    }
+}
+
+impl FromStr for HardwareType {
+    type Err = ();
+    fn from_str(s: &str) -> Result<HardwareType, ()> {
+        match s {
+            "ARDUINO" => Ok(HardwareType::ARDUINO),
+            "PI" => Ok(HardwareType::PI),
+            "OTHER" => Ok(HardwareType::OTHER),
+            "LG" => Ok(HardwareType::LG),
+            _ => Err(())
+        }
+    }
+}
+
+
+impl FromStr for DeviceType {
+    type Err = ();
+    fn from_str(s: &str) -> Result<DeviceType, ()> {
+        match s {
+            "LIGHT" => Ok(DeviceType::LIGHT),
+            "SWITCH" => Ok(DeviceType::SWITCH),
+            "GARAGE" => Ok(DeviceType::GARAGE),
+            "SPRINKLER" => Ok(DeviceType::SPRINKLER),
+            "ROUTER" => Ok(DeviceType::ROUTER),
+            "SQLSPRINKLER_HOST" => Ok(DeviceType::SqlSprinklerHost),
+            "TV" => Ok(DeviceType::TV),
+            _ => Err(())
         }
     }
 }
