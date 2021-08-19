@@ -1,15 +1,15 @@
 #[cfg(test)]
 mod tests {
-    use crate::models::*;
+    use arduinoautomation::models::{device, device::Device};
 
     const UUID: &str = "rtr1";
 
-    fn get_device_from_test_uuid() -> device::Device {
+    fn get_device_from_test_uuid() -> Device {
         let device = device::get_device_from_guid(&String::from(UUID));
         device
     }
 
-    fn get_device_from_bad_uuid() -> device::Device {
+    fn get_device_from_bad_uuid() -> Device {
         let device = device::get_device_from_guid(&"bad".to_string());
         device
     }
