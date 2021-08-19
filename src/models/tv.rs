@@ -38,7 +38,7 @@ impl ::std::default::Default for TvState {
 
 /// Checks to see if the given device is a TV, if so, add the fields required for TV.
 /// # Param
-/// *   dev : The Device we want to check to see if it is a TV.
+/// * dev : The Device we want to check to see if it is a TV.
 /// # Return
 /// True if the device is a TV, false otherwise.
 pub fn parse_device(mut dev: Device) -> Device {

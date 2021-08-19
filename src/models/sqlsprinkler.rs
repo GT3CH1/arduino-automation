@@ -64,9 +64,9 @@ pub fn set_system(ip: String, state: bool) -> bool {
 
 /// Gets the status from the SQLSprinkler host
 /// # Params
-///     * `ip` The IP Address of the SQLSprinkler host.
+/// * `ip` The IP Address of the SQLSprinkler host.
 /// # Return
-///     A boolean representing the state of the SQLSprinkler host, or an error if something happened.
+/// A boolean representing the state of the SQLSprinkler host, or an error if something happened.
 pub(crate) fn get_status_from_sqlsprinkler(ip: &String) -> Result<bool, Box<dyn Error>> {
     let url = format!("http://{}:3030/system/state", ip);
     let response = isahc::get(url).unwrap().text().unwrap();
@@ -77,9 +77,9 @@ pub(crate) fn get_status_from_sqlsprinkler(ip: &String) -> Result<bool, Box<dyn 
 
 /// Gets all the zones from the SQLSprinkler host.
 /// # Params
-///     *   `ip` A string representing the IP address of the SQLSprinkler host.
+/// * `ip` A string representing the IP address of the SQLSprinkler host.
 /// # Returns
-///     * A `Vec<Zone>` Representing all of the SQLSprinkler zones on the given host.  Or, if an
+/// * A `Vec<Zone>` Representing all of the SQLSprinkler zones on the given host.  Or, if an
 /// error occurs, we will get that error.
 fn get_zones_from_sqlsprinkler(ip: &String) -> Result<Vec<Zone>, Box<dyn Error>> {
     let url = format!("http://{}:3030/zone/info", ip);
@@ -93,9 +93,9 @@ fn get_zones_from_sqlsprinkler(ip: &String) -> Result<Vec<Zone>, Box<dyn Error>>
 /// Checks to see if the given device is an SQLSprinkler Host.  If it is, push the zones that are
 /// connected to that SQLSprinkler host.
 /// # Params
-///     * `dev` -> A mutable device representing the SQLSprinkler host
+/// * `dev` -> A mutable device representing the SQLSprinkler host
 /// # Return
-///     * True if the device is a sqlsprinkler host.
+/// * True if the device is a sqlsprinkler host.
 pub fn check_if_device_is_sqlsprinkler_host(dev: Device) -> Vec<Device> {
     let mut device_list = Vec::new();
 
@@ -122,9 +122,9 @@ pub fn check_if_device_is_sqlsprinkler_host(dev: Device) -> Vec<Device> {
 
 /// Checks to see if the given guid is a SQLSprinkler zone.
 /// # Param
-///     *   `guid`  The GUID of the device we are checking.
+/// * `guid`  The GUID of the device we are checking.
 /// # Return
-///     True if there is a match to the pattern of a SQLSprinkler zone.
+/// True if there is a match to the pattern of a SQLSprinkler zone.
 pub fn check_if_zone(guid: &String) -> bool {
     let re = Regex::new(r"(?im)^[0-9A-Fa-f]{8}[-]?(?:[0-9A-Fa-f]{4}[-]?){3}[0-9A-Fa-f]{12}[-][0-9].?$").unwrap();
     re.is_match(guid.as_str())

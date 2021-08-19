@@ -133,7 +133,7 @@ fn sys_put() -> impl Filter<Extract=(DeviceUpdate, ), Error=warp::Rejection> + C
 
 /// Sends a change state request to the device.
 /// # Params
-///     *   `state` A DeviceState representing the device we want to change.
+/// * `state` A DeviceState representing the device we want to change.
 async fn send_request(state: DeviceState, api_token: String, uid: String) -> Result<impl warp::Reply, warp::Rejection> {
     if !check_auth(api_token, uid) {
         Err(warp::reject())

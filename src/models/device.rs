@@ -142,8 +142,8 @@ impl Device {
 
     /// Gets a URL to use for turning on/off relays on arduinos
     /// # Params
-    ///     * endpoint : The UUID of the device we want to control.
-    ///     * param :   The state we want to set this device to.
+    /// * endpoint : The UUID of the device we want to control.
+    /// * param :   The state we want to set this device to.
     /// # Return
     /// A formatted URL we can send a request to.
     pub fn get_api_url_with_param(&self, endpoint: String, param: String) -> String {
@@ -266,9 +266,9 @@ impl Device {
 /// Gets the device from the database that corresponds to the given UUID.  If the device has the following pattern:
 /// xxxxxxxx-yyy-zzzzzzzzzzzz-n then we will get the device status from the SQLSprinkler host.
 /// # Params
-///     *   `guid`  The GUID of the device we want to get.
+/// * `guid`  The GUID of the device we want to get.
 /// # Return
-///     *   A device that corresponds to the given uuid, if there is no match, return a default device.
+/// * A device that corresponds to the given uuid, if there is no match, return a default device.
 pub fn get_device_from_guid(guid: &String) -> Device {
     if check_if_zone(guid) {
         return sqlsprinkler::get_zone(guid);
@@ -305,7 +305,7 @@ pub fn get_device_from_guid(guid: &String) -> Device {
 
 /// Gets all of the devices that are connected to this user in the database.
 /// # Return
-///     * A `Vec<Device>` containing all of the device information.
+/// * A `Vec<Device>` containing all of the device information.
 pub fn get_devices_uuid(user_uuid: &String) -> Vec<Device> {
     let firebase_device_list = get_firebase_users()
         .at(&user_uuid)
