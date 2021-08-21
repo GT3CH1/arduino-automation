@@ -3,6 +3,41 @@
 version = 3
 
 [[package]]
+name = "aa-consts"
+version = "0.1.0"
+source = "git+ssh://git@github.com/GT3CH1/aa-consts#80179f508ff824c5a3a227c9f4daeff43602c18f"
+dependencies = [
+ "firebase",
+]
+
+[[package]]
+name = "aa-daemon"
+version = "0.1.0"
+source = "git+https://github.com/GT3CH1/aa-daemon#116ef216749e512c6c086505fa3849b1a8ecd0a5"
+dependencies = [
+ "aa-consts",
+ "aa-models",
+ "isahc",
+ "parking_lot 0.10.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "warp",
+]
+
+[[package]]
+name = "aa-models"
+version = "0.1.0"
+source = "git+https://github.com/GT3CH1/aa-models#f78e4fed8fac2768a77ef345ca03bdd577ce0e5e"
+dependencies = [
+ "aa-consts",
+ "isahc",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24,18 +59,9 @@ dependencies = [
 name = "arduinoautomation"
 version = "0.1.0"
 dependencies = [
+ "aa-daemon",
  "env_logger",
- "firebase",
- "isahc",
- "parking_lot 0.10.2",
- "regex",
- "serde",
- "serde_json",
  "structopt",
- "tokio",
- "uuid",
- "wake-on-lan",
- "warp",
 ]
 
 [[package]]
@@ -1528,12 +1554,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
-name = "uuid"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
-
-[[package]]
 name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1550,12 +1570,6 @@ name = "version_check"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
-
-[[package]]
-name = "wake-on-lan"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ccf60b60ad7e5b1b37372c5134cbcab4db0706c231d212e0c643a077462bc8f"
 
 [[package]]
 name = "waker-fn"
